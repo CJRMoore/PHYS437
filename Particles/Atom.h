@@ -36,6 +36,7 @@ class Atom{
     std::string AtomName;
     double mass;
     double charge;
+    double qm_ratio;
     unsigned short nelectrons;
 
     std::vector<double> position;

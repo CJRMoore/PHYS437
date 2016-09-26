@@ -4,7 +4,7 @@
 // Initial position of molecule before coulomb explosion.  Currently approximated by
 // half of the distance between the centers of rings 4 and 5 (paper is not specific about
 // initial position of molecule/z-position of laser focal point).
-double Zinitial = 0.5 * (0.5 * (89.61+92.91) + 0.5 * (82.51+85.81));
+double Zinitial = 0.5 * (0.5 * (89.61+92.91) + 0.5 * (82.51+85.81)) * 1e-3;
 
 // Physical constants
 double Q = 1.602e-19;
@@ -55,8 +55,9 @@ void Molecule::AddAtom(std::string _atom){
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 // Molecule::Ionize
-// Cuurently removes all electrons from each atom. 
+// Currently removes all electrons from each atom. 
 // TODO: find out from Benji how the electrons will be ejected and what is expected to happen.
+//////////////////////////////////////////////////////////////////////////////////////////////////
 void Molecule::Ionize(){
     for (unsigned int iAtom=0; iAtom<nAtoms; iAtom++){
         Atoms[iAtom]->SetNelectrons(0);
@@ -64,13 +65,24 @@ void Molecule::Ionize(){
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
-// Atom Functions
+// Molecule::EventFinished
+// Checks if all of the atoms in the molecule have reached the bottom of the detector.
 //////////////////////////////////////////////////////////////////////////////////////////////////
+bool Molecule::EventFinished(){
+    bool fin = true;
+    for (int iA=0; iA<nAtoms; iA++) if (Atoms[iA]->GetPosition().back() > 0.) fin=false;
+    return fin;
+}
 
+
+/************************************************************************************************
+** Atom Functions
+************************************************************************************************/
 void Atom::Init(std::string aName, double aAtomicMass, int aAtomicCharge, double posX, double posY, double posZ){
     AtomName = aName;
     mass = aAtomicMass * mp;
     charge = Q * aAtomicCharge;
+    qm_ratio = charge/mass;
 
     momentum.resize(3,0);
     position.resize(3,0);

@@ -29,6 +29,7 @@ class Molecule{
 
     void AddAtom(std::string _atom);
     void Ionize();
+    bool EventFinished();
 
     std::string GetName(){ return MoleculeName; };
     

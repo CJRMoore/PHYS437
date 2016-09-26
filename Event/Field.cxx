@@ -49,7 +49,7 @@ std::vector<double> Field::GetCoordinates(std::string _dir){
 
 
 
-std::vector<double> Field::GetFieldAtPoint(double _x, double _y,  double _z){
+std::vector<double> Field::GetFieldAtPosition(double _x, double _y,  double _z){
     // Compare X
     int indexX = -1;
     int indexY = -1;
