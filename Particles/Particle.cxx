@@ -1,5 +1,8 @@
 #include "Molecule.h"
 #include "Atom.h"
+#include <cstdlib>
+#include <random>
+#include <ctime>
 
 // Initial position of molecule before coulomb explosion.  Currently approximated by
 // half of the distance between the centers of rings 4 and 5 (paper is not specific about
@@ -49,7 +52,7 @@ void Molecule::AddAtom(std::string _atom){
     else{
         std::cerr << "Unitientified atom: " << _atom << ".\n";
     }
-    Atoms.push_back(new Atom(_atom, m, q, x0, 0, Zinitial));
+    Atoms.push_back(new Atom(_atom, m, q, x0, 0, Zinitial, nAtoms+1));
     nAtoms += 1;
 }
 
@@ -59,8 +62,36 @@ void Molecule::AddAtom(std::string _atom){
 // TODO: find out from Benji how the electrons will be ejected and what is expected to happen.
 //////////////////////////////////////////////////////////////////////////////////////////////////
 void Molecule::Ionize(){
-    for (unsigned int iAtom=0; iAtom<nAtoms; iAtom++){
-        Atoms[iAtom]->SetNelectrons(0);
+    int total_e = 0;
+
+    time_t seed;
+    time(&seed);
+
+    std::default_random_engine generator(seed);
+    std::normal_distribution<double> distribution(10,1);
+    int nEjectedElectrons = (int)distribution(generator);
+
+    std::cout << "Ejecting " << nEjectedElectrons << " electrons from the molecule.\n";
+    std::vector<int> nE(nAtoms,0);
+
+    for (unsigned int iAtom=0; iAtom<nAtoms; iAtom++) total_e += Atoms[iAtom]->GetNelectrons();
+    for (int iE=0; iE<nEjectedElectrons; iE++){
+        int atom = generator()%(total_e);
+
+        int ecount = 0;
+        for (int i=0; i<nAtoms; i++){
+            if (ecount + Atoms[i]->GetNelectrons() > atom && Atoms[i]->GetNelectrons()>0) {
+                Atoms[i]->SetNelectrons(Atoms[i]->GetNelectrons()-1);
+                nE[i]++;
+                break;
+            }
+            ecount += Atoms[i]->GetNelectrons();
+        }
+
+        total_e--;
+    }
+    for (int i=0; i<nAtoms; i++){
+        std::cout << "\tElectrons ejected from " << Atoms[i]->GetName() << ": " << nE[i] << std::endl;
     }
 }
 
@@ -78,15 +109,19 @@ bool Molecule::EventFinished(){
 /************************************************************************************************
 ** Atom Functions
 ************************************************************************************************/
-void Atom::Init(std::string aName, double aAtomicMass, int aAtomicCharge, double posX, double posY, double posZ){
+void Atom::Init(std::string aName, double aAtomicMass, int aAtomicCharge, double posX, double posY, double posZ, int aIndex){
     AtomName = aName;
     mass = aAtomicMass * mp;
     charge = Q * aAtomicCharge;
+    nElectrons = aAtomicCharge;
     qm_ratio = charge/mass;
+    TimeOfFlight = -1.;
 
     momentum.resize(3,0);
     position.resize(3,0);
     position[0] = posX;
     position[1] = posY;
     position[2] = posZ;
+
+    index = aIndex;
 }
