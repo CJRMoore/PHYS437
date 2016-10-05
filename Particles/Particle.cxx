@@ -37,7 +37,7 @@ void Molecule::AddAtom(std::string _atom){
     if (_atom=="O"){
         m = 115.9994;
         q = 8;
-        x0 = -115.78e-12;
+        x0 = -115.78e-10;
     }
     else if (_atom=="C"){
         m = 12.0107;
@@ -47,7 +47,7 @@ void Molecule::AddAtom(std::string _atom){
     else if (_atom=="S"){
         m = 32.065;
         q = 16;
-        x0 = 156.01e-12;
+        x0 = 156.01e-10;
     }
     else{
         std::cerr << "Unitientified atom: " << _atom << ".\n";

@@ -64,31 +64,40 @@ std::vector<double> EventHandler::EfieldFromCharge(std::vector<double> k, double
     double machine_eps = std::numeric_limits<double>::epsilon(); // added to denominator
 
     Atom *other = 0;
-    std::vector<double> Evector(0);
+
+    double referenceDistance = 1e-11;
+    std::vector<std::vector<long double> > V_at_R(3,std::vector<long double>(2,0));
+    std::vector<std::vector<double> > absR(2,std::vector<double>(0,0));
+    std::vector<std::vector<double> > r0(3,std::vector<double>(2,0));
     for (int iA=0; iA<mMolecule->GetNatoms(); iA++){
         other = mMolecule->GetAtom(iA);
         if (mAtom->GetIndex()==other->GetIndex()) continue;
         std::vector<double> otherpos = other->GetPosition();
-
+        
+        for (int iD=0; iD<3; iD++){
         // Find abs. distance
-        double rho = pow(atompos[X]-otherpos[X],2)+pow(atompos[Y]-otherpos[Y],2)+
-            pow(atompos[Z]-otherpos[Z],2);
-        double E = K_const * other->GetTotalCharge() / rho;
-        rho = pow(rho,0.5);
+            absR[0] = otherpos;
+            absR[1] = otherpos;
+            absR[0][iD] += referenceDistance;
+            absR[1][iD] -= referenceDistance;
+            for (int iD2=0; iD2<3; iD2++) {
+                r0[iD][0] += pow(atompos[iD2] - absR[0][iD2],2);
+                r0[iD][1] += pow(atompos[iD2] - absR[1][iD2],2);
+            }
+            r0[iD][0] = pow(r0[iD][0],.5);
+            r0[iD][1] = pow(r0[iD][1],.5);
 
-        double theta = acos(rho/(atompos[Z]-otherpos[Z] + machine_eps));
-        if (theta!=theta) theta=PI/2;
-        double phi   = atan((atompos[Y]-otherpos[Y])/(atompos[X]-otherpos[X]+machine_eps));
-        std::cout << rho << " " << (atompos[Z]-otherpos[Z]) << " " << theta << " " << phi << std::endl;
-
-        Evector.push_back(E*sin(theta)*cos(phi)); //E_x
-        if (atompos[X] < otherpos[X]) Evector.back() *= -1;
-        Evector.push_back(E*sin(theta)*sin(phi)); //E_y
-        if (atompos[Y] < otherpos[Y]) Evector.back() *= -1;
-        Evector.push_back(E*cos(theta)); //E_z
-        if (atompos[Z] < otherpos[Z]) Evector.back() *= -1;
-        std::cout << "\t" << Evector[0] << " " << Evector[1] << " " << Evector[2] << std::endl;
+            V_at_R[iD][0] += K_const * other->GetCharge() / r0[iD][0];
+            V_at_R[iD][1] += K_const * other->GetCharge() / r0[iD][1];
+        }
     }
+    std::vector<double> Evector(3,0);
+    Evector[0] = (V_at_R[0][1] - V_at_R[0][0]) / (2*referenceDistance);
+//        if (atompos[X] < otherpos[X]) Evector.back() *= -1;
+    Evector[1] = (V_at_R[1][1] - V_at_R[1][0]) / (2*referenceDistance);
+//        if (atompos[Y] < otherpos[Y]) Evector.back() *= -1;
+    Evector[2] = (V_at_R[2][1] - V_at_R[2][0]) / (2*referenceDistance);
+//        if (atompos[Z] < otherpos[Z]) Evector.back() *= -1;
     return Evector;
 }
 
@@ -114,6 +123,7 @@ void EventHandler::RungeKutta(){
         std::vector<double> k2 = UpdateDistance(k1, timedelta/2);
         std::vector<double> k3 = UpdateDistance(k2, timedelta/2);
         std::vector<double> k4 = UpdateDistance(k3, timedelta);
+     //   std::cout << std::endl;
 
         for (int iD=0; iD<3; iD++){
             newpos[iA][iD] += timedelta/6 * (k1[iD]+2*k2[iD]+2*k3[iD]+k4[iD]);
@@ -125,7 +135,9 @@ void EventHandler::RungeKutta(){
         mAtom = mMolecule->GetAtom(iA);
         mAtom->SetPosition(newpos[iA]);
         mAtom->SetMomentum(newmom[iA]);
+   //     std::cout << newpos[iA][0] << " " << newpos[iA][1] << " " << newpos[iA][2] << " | " << newmom[iA][0] << " " << newmom[iA][1] << " " << newmom[iA][2] << std::endl;
     }
+//    std::cout << nIter << std::endl << std::endl;;
 }
 
 
@@ -139,8 +151,10 @@ std::vector<double> EventHandler::UpdateDistance(std::vector<double> k, double d
     double mass = mAtom->GetMass();
     double qm_ratio = mAtom->GetTotalCharge()/mass;
     for (int i=0; i<3; i++) {
-        accel.push_back(qm_ratio * (E_q[i] + E_s[i]));
+        //std::cout << " " << mAtom->GetIndex() << "\n " << E_q[i] << " " << E_s[i] << " " << qm_ratio << std::endl;
+        accel.push_back(qm_ratio * E_s[i] + qm_ratio * E_q[i]);// (E_q[i] + E_s[i]));
         v_return[i] = k[i] + accel[i] * dt;
     }
+    //std::cout << "\t" << mAtom->GetIndex() << " " << qm_ratio << "|" << E_q[0] << " " << accel[0] << "|" << E_q[1] << " " << accel[1] << "|" << E_q[2] << " " << accel[2] << std::endl;
     return v_return;
 }
