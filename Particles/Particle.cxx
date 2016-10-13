@@ -35,9 +35,9 @@ void Molecule::AddAtom(std::string _atom){
     int q=0;
     double x0=0;
     if (_atom=="O"){
-        m = 115.9994;
+        m = 15.9994;
         q = 8;
-        x0 = -115.78e-10;
+        x0 = -115.78e-12;
     }
     else if (_atom=="C"){
         m = 12.0107;
@@ -47,7 +47,7 @@ void Molecule::AddAtom(std::string _atom){
     else if (_atom=="S"){
         m = 32.065;
         q = 16;
-        x0 = 156.01e-10;
+        x0 = 156.01e-12;
     }
     else{
         std::cerr << "Unitientified atom: " << _atom << ".\n";
@@ -62,6 +62,11 @@ void Molecule::AddAtom(std::string _atom){
 // TODO: find out from Benji how the electrons will be ejected and what is expected to happen.
 //////////////////////////////////////////////////////////////////////////////////////////////////
 void Molecule::Ionize(){
+    Atoms[0]->SetNelectrons(Atoms[0]->GetNelectrons()-1);
+    Atoms[1]->SetNelectrons(Atoms[1]->GetNelectrons()-1);
+    Atoms[2]->SetNelectrons(Atoms[2]->GetNelectrons()-1);
+    return;
+
     int total_e = 0;
 
     time_t seed;
@@ -115,7 +120,7 @@ void Atom::Init(std::string aName, double aAtomicMass, int aAtomicCharge, double
     charge = Q * aAtomicCharge;
     nElectrons = aAtomicCharge;
     qm_ratio = charge/mass;
-    TimeOfFlight = -1.;
+    TimeOfFlight = 0;
 
     momentum.resize(3,0);
     position.resize(3,0);

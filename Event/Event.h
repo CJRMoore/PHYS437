@@ -35,6 +35,14 @@ class EventHandler{
     unsigned int nIter;
     double time;
     double timedelta;
+    std::vector<double> errors;
+
+    // For the adaptive step sizing.
+    std::vector<unsigned int> fail;
+    std::vector<double> a_ij;
+    std::vector<std::vector<double> > b_ij;
+    std::vector<double> c_ij;
+    std::vector<double> cs_ij;
 
 };
 
