@@ -93,9 +93,9 @@ double EventHandler::Run(){
 // EventHandler::EfieldFromCharge
 // Calculate the acceleration on the particles due to the other particles
 //////////////////////////////////////////////////////////////////////////////////////////////////
-std::vector<double> EventHandler::EfieldFromCharge(std::vector<double> k, double dt){
-    std::vector<double> atompos = mAtom->GetPosition();
-    for (int ik=0; ik<atompos.size(); ik++) atompos[ik] += k[ik]*dt;
+std::vector<double> EventHandler::EfieldFromCharge(std::vector<double> atompos, double dt){
+//    std::vector<double> atompos = mAtom->GetPosition();
+//    for (int ik=0; ik<atompos.size(); ik++) atompos[ik] += k[ik]*dt;
 
     Atom *other = 0;
 
@@ -155,23 +155,16 @@ void EventHandler::RungeKutta(){
             fail[iA] = 2;
             continue;
         }
-
+        
         newmom[iA] = mAtom->GetMomentum();
         std::vector<double> vel = newmom[iA];
         for (int i=0; i<vel.size(); i++) vel[i] /= mAtom->GetMass();
-        std::vector<std::vector<double> > k_vector(6,std::vector<double>(3,0));
+        std::vector<std::vector<double> > k_vector(0);
+        k_vector.push_back(vel);
 
-        k_vector[0] = UpdateDistance(vel, timedelta*a_ij[0]);
-        for (int i=1; i<k_vector.size(); i++) {
-            std::vector<double> temp_k(3,0);
-            for (int j=0; j<i; j++){
-//                if (k_vector[j][0]==0)
-                temp_k[0] += k_vector[j][0] * b_ij[i][j];
-                temp_k[1] += k_vector[j][1] * b_ij[i][j];
-                temp_k[2] += k_vector[j][2] * b_ij[i][j];
-            }
-            k_vector[i] = UpdateDistance(temp_k, timedelta*a_ij[i]);
-        }
+        k_vector[0] = UpdateDistance(k_vector, timedelta*a_ij[0]);
+        for (int i=1; i<6; i++) 
+            k_vector.push_back(UpdateDistance(k_vector, timedelta*a_ij[i]));
 
         std::vector<std::vector<long double> > y(3,std::vector<long double>(2,0));
         std::vector<std::vector<long double> > v(3,std::vector<long double>(2,0));
@@ -225,7 +218,7 @@ void EventHandler::RungeKutta(){
 //    if (which_delta>=0 && delta_max>0) timedelta *= pow(errors[which_delta]/delta_max,0.2);
 //    else if (delta_max>0) timedelta *= pow(errors[1]/fabs(delta_max),0.2);
 
-    unsigned int mask;
+/*    unsigned int mask=1;
     for (int iA=0; iA<mMolecule->GetNatoms(); iA++) mask |= 1 << fail[iA];
     switch (mask){
         case 1:
@@ -233,9 +226,8 @@ void EventHandler::RungeKutta(){
         case 2:
 
         case 3:
-//            nIter--;
             return;
-    }
+    }*/
 
     for (int iA=0; iA < mMolecule->GetNatoms(); iA++){
         momentum[0] += newmom[iA][0];
@@ -249,27 +241,35 @@ void EventHandler::RungeKutta(){
 //       std::cout << newpos[iA][0] << " " << newpos[iA][1] << " " << newpos[iA][2] << " | " << newmom[iA][0] << " " << newmom[iA][1] << " " << newmom[iA][2] << std::endl;
     }
     std::cout << nIter << " " << momentum[0] << " " << momentum[1] << " " << momentum[2] << std::endl;
-    std::cout << newmom[0][0] << std::endl << std::endl;
+    std::cout << newmom[0][0] << " " << newmom[1][0] << std::endl << std::endl;
 
 //std::cout << std::endl << std::endl;
 //    std::cout << nIter << std::endl << std::endl;;
 }
 
 
-std::vector<double> EventHandler::UpdateDistance(std::vector<double> k, double dt){
+std::vector<double> EventHandler::UpdateDistance(std::vector<std::vector<double> > k, double dt){
     std::vector<double> position = mAtom->GetPosition();
-    for (int i=0; i<position.size(); i++) position[i] += k[i] * dt;
+    std::vector<double> v_return(3,0);
+    int k_index = k.size();
+    if (dt==0) k_index = 0;
+    for (int i=0; i<k.size(); i++){ 
+        for (int j=0; j<position.size(); j++) {
+            position[j] += k[i][j] * timedelta * b_ij[k_index][i];
+            v_return[j] += k[i][j] * b_ij[k_index][i];
+        }
+    }
+    if (dt==0) k_index = 1;
 
-    std::vector<double> E_q = EfieldFromCharge(k, dt);
+    std::vector<double> E_q = EfieldFromCharge(position, dt);
     std::vector<double> E_s = mField->GetFieldAtPosition(position);
     std::vector<double> accel(0);
-    std::vector<double> v_return(3,0);
     double mass = mAtom->GetMass();
     double qm_ratio = mAtom->GetTotalCharge()/mass;
     for (int i=0; i<3; i++) {
         //std::cout << " " << mAtom->GetIndex() << "\n " << E_q[i] << " " << E_s[i] << " " << qm_ratio << std::endl;
         accel.push_back(qm_ratio * E_q[i]);// + qm_ratio * E_q[i]);// (E_q[i] + E_s[i]));
-        v_return[i] = k[i] + accel[i] * dt;
+        v_return[i] += accel[i] * dt;
     }
 //    std::cout << "\t" << mAtom->GetIndex() << " " << qm_ratio << "|" << E_s[0] << " " << v_return[0] << " " << accel[0] << "|" << E_s[1] << " " << v_return[1] << " " << accel[1] << "|" << E_s[2] << " " << v_return[2] << " " << accel[2] << std::endl;
     return v_return;

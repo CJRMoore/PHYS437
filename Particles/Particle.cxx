@@ -25,7 +25,7 @@ void Molecule::Init(std::string aMolecule){
     // Add ability later for different molecules, for now just OCS
     AddAtom("O");
     AddAtom("C");
-    AddAtom("S");
+    //AddAtom("S");
 }
 
 // AddAtom: perform lookup of atom description (mass/charge/etc.) from atomic symbol, append
@@ -64,7 +64,7 @@ void Molecule::AddAtom(std::string _atom){
 void Molecule::Ionize(){
     Atoms[0]->SetNelectrons(Atoms[0]->GetNelectrons()-1);
     Atoms[1]->SetNelectrons(Atoms[1]->GetNelectrons()-1);
-    Atoms[2]->SetNelectrons(Atoms[2]->GetNelectrons()-1);
+    //Atoms[2]->SetNelectrons(Atoms[2]->GetNelectrons()-1);
     return;
 
     int total_e = 0;

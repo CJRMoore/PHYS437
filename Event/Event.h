@@ -21,7 +21,7 @@ class EventHandler{
     double Run();
     void RungeKutta();
     void Reset();
-    std::vector<double> UpdateDistance(std::vector<double> k, double dt=0);
+    std::vector<double> UpdateDistance(std::vector<std::vector<double> > k, double dt=0);
 
 
   protected:
