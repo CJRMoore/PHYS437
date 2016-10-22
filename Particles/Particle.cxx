@@ -122,7 +122,7 @@ void Atom::Init(std::string aName, double aAtomicMass, int aAtomicCharge, double
     qm_ratio = charge/mass;
     TimeOfFlight = 0;
 
-    momentum.resize(3,0);
+    velocity.resize(3,0);
     position.resize(3,0);
     position[0] = posX;
     position[1] = posY;

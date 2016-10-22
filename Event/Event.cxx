@@ -23,6 +23,7 @@ void EventHandler::Init(Field* aField, Molecule* aMolecule){
     timedelta = std::numeric_limits<double>::epsilon();//1e-10;
 
     fail.resize(mMolecule->GetNatoms(),0);
+    mask = 0;
 
     // resize Runge-Kutta constant vectors and set their values
     errors.resize(2,0);
@@ -83,7 +84,6 @@ double EventHandler::Run(){
         RungeKutta();
         nIter++;
         time += timedelta;
-        if (nIter>100) break;
     }
     return time;
 }
@@ -142,8 +142,9 @@ std::vector<double> EventHandler::EfieldFromCharge(std::vector<double> atompos, 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 void EventHandler::RungeKutta(){
     std::vector<std::vector<double> > newpos(mMolecule->GetNatoms(),std::vector<double>(3,0));
-    std::vector<std::vector<double> > newmom(mMolecule->GetNatoms(),std::vector<double>(3,0));
+    std::vector<std::vector<double> > newvel(mMolecule->GetNatoms(),std::vector<double>(3,0));
 
+    mask = 0;
     double delta_max = 0;
     int which_delta = -1;
     std::vector<double> momentum(3,0);
@@ -156,13 +157,11 @@ void EventHandler::RungeKutta(){
             continue;
         }
         
-        newmom[iA] = mAtom->GetMomentum();
-        std::vector<double> vel = newmom[iA];
-        for (int i=0; i<vel.size(); i++) vel[i] /= mAtom->GetMass();
+        newvel[iA] = mAtom->GetVelocity();
+        std::vector<double> vel = newvel[iA];
         std::vector<std::vector<double> > k_vector(0);
         k_vector.push_back(vel);
 
-        k_vector[0] = UpdateDistance(k_vector, timedelta*a_ij[0]);
         for (int i=1; i<6; i++) 
             k_vector.push_back(UpdateDistance(k_vector, timedelta*a_ij[i]));
 
@@ -181,23 +180,24 @@ void EventHandler::RungeKutta(){
                                       + cs_ij[3] * k_vector[3][iD] * timedelta
                                       + cs_ij[4] * k_vector[4][iD] * timedelta
                                       + cs_ij[5] * k_vector[5][iD] * timedelta;
-            long double delta_y = fabs(y[iD][0] - y[iD][1]);
-            v[iD][0] = newmom[iA][iD] + c_ij[0] * k_vector[0][iD]
+            double delta_y = fabs(y[iD][0] - y[iD][1]);
+
+            v[iD][0] = newvel[iA][iD] + c_ij[0] * k_vector[0][iD]
                      + c_ij[1] * k_vector[1][iD]
                      + c_ij[2] * k_vector[2][iD]
                      + c_ij[3] * k_vector[3][iD]
                      + c_ij[4] * k_vector[4][iD]
                      + c_ij[5] * k_vector[5][iD];
-            v[iD][1] = newmom[iA][iD] +cs_ij[0] * k_vector[0][iD]
+            v[iD][1] = newvel[iA][iD] +cs_ij[0] * k_vector[0][iD]
                      + cs_ij[1] * k_vector[1][iD]
                      + cs_ij[2] * k_vector[2][iD]
                      + cs_ij[3] * k_vector[3][iD]
                      + cs_ij[4] * k_vector[4][iD]
                      + cs_ij[5] * k_vector[5][iD];
-            long double delta_v = fabs(v[iD][0] - v[iD][1]);
+            double delta_v = fabs(v[iD][0] - v[iD][1]);
             
             newpos[iA][iD] = y[iD][0];
-            newmom[iA][iD] = mAtom->GetMass() * v[iD][0];
+            newvel[iA][iD] = mAtom->GetMass() * v[iD][0];
             if (delta_y>errors[0]) fail[0] = 1;
             if (delta_v>errors[1]) fail[1] = 1;
 
@@ -209,8 +209,9 @@ void EventHandler::RungeKutta(){
                 delta_max = delta_v;
                 which_delta = 1;
             }
-            //std::cout << v[iD][0] << " " << v[iD][1] << " " << v[iD][2] << " " << delta_y << " " << delta_v << std::endl;
+            std::cout << iD << " " << delta_y << " " << delta_v << std::endl;
         }
+        std::cout << std::endl;
     }
 
     //std::cout << timedelta << " " << fabs(delta_max) << std::endl;
@@ -218,8 +219,8 @@ void EventHandler::RungeKutta(){
 //    if (which_delta>=0 && delta_max>0) timedelta *= pow(errors[which_delta]/delta_max,0.2);
 //    else if (delta_max>0) timedelta *= pow(errors[1]/fabs(delta_max),0.2);
 
-    unsigned int mask=1;
-    for (int iA=0; iA<mMolecule->GetNatoms(); iA++) mask |= 1 << fail[iA];
+    
+    //for (int iA=0; iA<mMolecule->GetNatoms(); iA++) mask |= 1 << fail[iA];
 /*    switch (mask){
         case 1:
             break;
@@ -229,19 +230,26 @@ void EventHandler::RungeKutta(){
             return;
     }*/
 
+    // check for validity of update (both that (Z+dz)>Z and that errors are withiin bounds)
+    // MUST be done before next loop to maintain atomicity
+    for (int iA=0; iA<mMolecule->GetNatoms(); iA++){
+        mAtom = mMolecule->GetAtom(iA);
+        if ((mAtom->GetPosition()[2] - newpos[iA][2])==0) mask|=1<<1;
+    }
+    if ((mask&2)==2) nIter--;
+
     for (int iA=0; iA < mMolecule->GetNatoms(); iA++){
-        momentum[0] += newmom[iA][0];
-        momentum[1] += newmom[iA][1];
-        momentum[2] += newmom[iA][2];
-        if ((fail[iA]&2)==2) continue;
+        if ((mask&2)==2) continue;
         mAtom = mMolecule->GetAtom(iA);
         mAtom->SetPosition(newpos[iA]);
-        mAtom->SetMomentum(newmom[iA]);
+        mAtom->SetVelocity(newvel[iA]);
         mAtom->SetTimeOfFlight(mAtom->GetTimeOfFlight() + timedelta);
-//       std::cout << newpos[iA][0] << " " << newpos[iA][1] << " " << newpos[iA][2] << " | " << newmom[iA][0] << " " << newmom[iA][1] << " " << newmom[iA][2] << std::endl;
+        //std::cout << newpos[iA][0] << " " << newpos[iA][1] << " " << newpos[iA][2] << " | " << newvel[iA][0] << " " << newvel[iA][1] << " " << newvel[iA][2] << std::endl;
     }
-    std::cout << nIter << " " << momentum[0] << " " << momentum[1] << " " << momentum[2] << std::endl;
-//    std::cout << newmom[0][0] << " " << newmom[1][0] << std::endl << std::endl;
+//std::cout << std::endl;
+    
+    //std::cout << nIter << " " << timedelta << " " << momentum[0] << " " << momentum[1] << " " << momentum[2] << std::endl;
+//    timedelta *= pow(pow(10,-24)/oneofthem,0.2);
 
 //std::cout << std::endl << std::endl;
 //    std::cout << nIter << std::endl << std::endl;;
@@ -250,14 +258,12 @@ void EventHandler::RungeKutta(){
 
 std::vector<double> EventHandler::UpdateDistance(std::vector<std::vector<double> > k, double dt){
     std::vector<double> position = mAtom->GetPosition();
-    std::vector<double> v_return(3,0);
-    int k_index = k.size();
-    if (dt==0) k_index = 0;
+    std::vector<double> v_return = mAtom->GetVelocity();
+    int k_index = k.size()-1;
+    double normalization=0;
     for (int i=0; i<k.size(); i++){ 
-        for (int j=0; j<position.size(); j++) {
-            position[j] += k[i][j] * timedelta * b_ij[k_index][i];
-            v_return[j] += k[i][j] * b_ij[k_index][i];
-        }
+        for (int j=0; j<position.size(); j++) v_return[j] += k[i][j] * b_ij[k_index][i];
+        for (int j=0; j<position.size(); j++) position[j] += v_return[j] * timedelta;
     }
 
     std::vector<double> E_q = EfieldFromCharge(position, dt);
@@ -266,7 +272,7 @@ std::vector<double> EventHandler::UpdateDistance(std::vector<std::vector<double>
     double mass = mAtom->GetMass();
     double qm_ratio = mAtom->GetTotalCharge()/mass;
     for (int i=0; i<3; i++) {
-        accel.push_back(qm_ratio * E_q[i]);// + qm_ratio * E_q[i]);// (E_q[i] + E_s[i]));
+        accel.push_back(qm_ratio * E_q[i] + qm_ratio * E_s[i]);// (E_q[i] + E_s[i]));
         v_return[i] += accel[i] * dt;
     }
 //    std::cout << "\t" << mAtom->GetIndex() << " " << qm_ratio << "|" << E_s[0] << " " << v_return[0] << " " << accel[0] << "|" << E_s[1] << " " << v_return[1] << " " << accel[1] << "|" << E_s[2] << " " << v_return[2] << " " << accel[2] << std::endl;

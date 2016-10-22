@@ -32,7 +32,8 @@ class EventHandler{
     Molecule* mMolecule;
     Atom* mAtom;
 
-    unsigned int nIter;
+    unsigned int mask;
+    int nIter;
     double time;
     double timedelta;
     std::vector<double> errors;

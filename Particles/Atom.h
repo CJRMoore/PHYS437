@@ -16,8 +16,8 @@ class Atom{
     std::vector<double> GetPosition(){ return position; };
     void SetPosition(std::vector<double> _position){ position = _position; };
 
-    std::vector<double> GetMomentum(){ return momentum; };
-    void SetMomentum(std::vector<double> _momentum){ momentum = _momentum; };
+    std::vector<double> GetVelocity(){ return velocity; };
+    void SetVelocity(std::vector<double> _velocity){ velocity = _velocity; };
 
     double GetMass(){ return mass; };
     void SetMass(double _mass) { mass = _mass; };
@@ -50,6 +50,6 @@ class Atom{
     unsigned short index;
 
     std::vector<double> position;
-    std::vector<double> momentum;
+    std::vector<double> velocity;
 };
 #endif
