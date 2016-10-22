@@ -19,9 +19,11 @@ class EventHandler{
 
     std::vector<double> EfieldFromCharge(std::vector<double> k, double dt=0);
     double Run();
-    void RungeKutta();
+    bool RungeKutta(int RunType);
     void Reset();
-    std::vector<double> UpdateDistance(std::vector<std::vector<double> > k, double dt=0);
+    std::vector<double> UpdateDistance(std::vector<std::vector<double> > k, double dt=0, int Runtype=0);
+
+    bool FinalCondition(int RunType, double Contidion=0.);
 
 
   protected:
@@ -36,7 +38,8 @@ class EventHandler{
     int nIter;
     double time;
     double timedelta;
-    std::vector<double> errors;
+    std::vector<std::vector<double> > errors_vel;
+    std::vector<std::vector<double> > errors_pos;
 
     // For the adaptive step sizing.
     std::vector<unsigned int> fail;
