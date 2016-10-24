@@ -16,6 +16,7 @@
 class Molecule{
   public:
     Molecule(){ Init("OCS"); }
+    ~Molecule();
     Molecule(std::string aMolecule){ Init(aMolecule); }
 
     unsigned short GetNatoms(){ return nAtoms; };

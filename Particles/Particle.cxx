@@ -17,6 +17,11 @@ double mp = 1.67e-27;
 // Molecule Functions
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+// Molecule::Init
+// Create the atoms in the molecule
+//////////////////////////////////////////////////////////////////////////////////////////////////
 void Molecule::Init(std::string aMolecule){
     MoleculeName = aMolecule;
     nAtoms = 0;
@@ -25,7 +30,15 @@ void Molecule::Init(std::string aMolecule){
     // Add ability later for different molecules, for now just OCS
     AddAtom("O");
     AddAtom("C");
-//    AddAtom("S");
+    AddAtom("S");
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+// Molecule::~Molecule
+// Destroy the atoms in the Atoms vector
+//////////////////////////////////////////////////////////////////////////////////////////////////
+Molecule::~Molecule(){
+    for (int iAtom=0; iAtom<Atoms.size(); iAtom++) delete Atoms[iAtom];
 }
 
 // AddAtom: perform lookup of atom description (mass/charge/etc.) from atomic symbol, append
@@ -56,16 +69,17 @@ void Molecule::AddAtom(std::string _atom){
     nAtoms += 1;
 }
 
+
 //////////////////////////////////////////////////////////////////////////////////////////////////
 // Molecule::Ionize
 // Currently removes all electrons from each atom. 
 // TODO: find out from Benji how the electrons will be ejected and what is expected to happen.
 //////////////////////////////////////////////////////////////////////////////////////////////////
 void Molecule::Ionize(){
-    Atoms[0]->SetNelectrons(Atoms[0]->GetNelectrons()-1);
-    Atoms[1]->SetNelectrons(Atoms[1]->GetNelectrons()-1);
+//    Atoms[0]->SetNelectrons(Atoms[0]->GetNelectrons()-1);
+//    Atoms[1]->SetNelectrons(Atoms[1]->GetNelectrons()-1);
 //    Atoms[2]->SetNelectrons(Atoms[2]->GetNelectrons()-1);
-    return;
+//    return;
 
     int total_e = 0;
 

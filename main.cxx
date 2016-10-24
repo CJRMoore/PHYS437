@@ -4,6 +4,8 @@
 #include "Event/Event.h"
 #include "Event/Event.cxx"
 
+#include "TFile.h"
+
 int main(int argc, char** argv){
     int nIterations = 1;
     if (argc==2) nIterations = atoi(argv[1]);
@@ -25,6 +27,9 @@ int main(int argc, char** argv){
                 m->GetAtom(i)->GetTimeOfFlight(), pos[0], pos[1], pos[2]);
             std::cout << buf << std::endl;
         }
-    }
 
+        delete m;
+        delete f;
+        delete e;
+    }
 }
