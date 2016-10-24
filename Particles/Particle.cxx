@@ -30,7 +30,7 @@ void Molecule::Init(std::string aMolecule){
     // Add ability later for different molecules, for now just OCS
     AddAtom("O");
     AddAtom("C");
-    AddAtom("S");
+//    AddAtom("S");
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -76,10 +76,10 @@ void Molecule::AddAtom(std::string _atom){
 // TODO: find out from Benji how the electrons will be ejected and what is expected to happen.
 //////////////////////////////////////////////////////////////////////////////////////////////////
 void Molecule::Ionize(){
-//    Atoms[0]->SetNelectrons(Atoms[0]->GetNelectrons()-1);
-//    Atoms[1]->SetNelectrons(Atoms[1]->GetNelectrons()-1);
+    Atoms[0]->SetNelectrons(Atoms[0]->GetNelectrons()-1);
+    Atoms[1]->SetNelectrons(Atoms[1]->GetNelectrons()-1);
 //    Atoms[2]->SetNelectrons(Atoms[2]->GetNelectrons()-1);
-//    return;
+    return;
 
     int total_e = 0;
 
@@ -87,13 +87,18 @@ void Molecule::Ionize(){
     time(&seed);
 
     std::default_random_engine generator(seed);
-    std::normal_distribution<double> distribution(10,1);
+    std::normal_distribution<double> distribution(8,3);
     int nEjectedElectrons = (int)distribution(generator);
+    if (nEjectedElectrons<nAtoms) nEjectedElectrons=nAtoms;
 
     std::cout << "Ejecting " << nEjectedElectrons << " electrons from the molecule.\n";
     std::vector<int> nE(nAtoms,0);
 
-    for (unsigned int iAtom=0; iAtom<nAtoms; iAtom++) total_e += Atoms[iAtom]->GetNelectrons();
+    for (int iAtom=0; iAtom<nAtoms-1; iAtom++) nE[iAtom] = int(nEjectedElectrons/nAtoms);
+    nE.back() = int(nEjectedElectrons - nEjectedElectrons * (nAtoms-1)/nAtoms);
+    for (int i=0; i<nAtoms; i++) Atoms[i]->SetNelectrons(Atoms[i]->GetNelectrons()-nE[i]);
+
+/*    for (unsigned int iAtom=0; iAtom<nAtoms; iAtom++) total_e += Atoms[iAtom]->GetNelectrons();
     for (int iE=0; iE<nEjectedElectrons; iE++){
         int atom = generator()%(total_e);
 
@@ -108,7 +113,7 @@ void Molecule::Ionize(){
         }
 
         total_e--;
-    }
+    }*/
     for (int i=0; i<nAtoms; i++){
         std::cout << "\tElectrons ejected from " << Atoms[i]->GetName() << ": " << nE[i] << std::endl;
     }

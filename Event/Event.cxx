@@ -27,8 +27,13 @@ void EventHandler::Init(Field* aField, Molecule* aMolecule){
     mask = 0;
 
     // resize Runge-Kutta constant vectors and set their values
-    errors_vel.resize(2,std::vector<double> (3,2.5e-3));
-    errors_pos.resize(2,std::vector<double> (3,2.5e-14));
+    errors_pos.resize(2);
+    errors_pos[0] = std::vector<double> (3,5e-21);
+    errors_pos[1] = std::vector<double> (3,2.5e-14);
+
+    errors_vel.resize(2);
+    errors_vel[0] = std::vector<double> (3,2e-5);
+    errors_vel[1] = std::vector<double> (3,2.5e-5);
 
     a_ij.resize(6,0);
     b_ij.resize(6,std::vector<double>(5,0));
@@ -77,6 +82,24 @@ void EventHandler::Reset(){
 //////////////////////////////////////////////////////////////////////////////////////////////////
 double EventHandler::Run(){
     std::vector<double> momentum(3,0);
+
+    std::cout << "Potential energies before explosion:\n";  
+    for (int i=0; i<mMolecule->GetNatoms(); i++){
+        mAtom = mMolecule->GetAtom(i);
+        double E = 0;
+        for (int j=0; j<mMolecule->GetNatoms(); j++){
+            Atom* oAtom = mMolecule->GetAtom(j);
+            if (mAtom->GetIndex() == oAtom->GetIndex()) continue;
+            std::vector<double> mpos = mAtom->GetPosition();
+            std::vector<double> opos = oAtom->GetPosition();
+            double r = pow(mpos[0]-opos[0],2) + pow(mpos[1]-opos[1],2) + pow(mpos[2]-opos[2],2);
+            r = pow(r,0.5);
+            E += K_const * mAtom->GetTotalCharge() * oAtom->GetTotalCharge() / r;
+        }
+        std::cout << "\t" << mAtom->GetName() << ":\t" << E << std::endl;
+    }
+
+
     
     // Run coulomb explosion 
     while (RungeKutta(0)){
@@ -84,6 +107,18 @@ double EventHandler::Run(){
         //nIter++;
     }
     std::cout << "Finished explosion\n";
+    timedelta = std::numeric_limits<double>::epsilon();
+    return 0;
+
+    std::cout << "Kinetic energies after explosion:\n";   
+    for (int i=0; i<mMolecule->GetNatoms(); i++){
+        mAtom = mMolecule->GetAtom(i);
+        std::vector<double> mvel = mAtom->GetVelocity();
+        double v = pow(mvel[0],2) + pow(mvel[1],2) + pow(mvel[2],2);
+        v = pow(v,.5);
+        double E = 0.5 * mAtom->GetMass() * pow(v,2);
+        std::cout << "\t" << mAtom->GetName() << ":\t" << E << std::endl;
+    }
 
     while (!RungeKutta(1)){
         nIter++;
@@ -148,7 +183,7 @@ std::vector<double> EventHandler::EfieldFromCharge(std::vector<double> atompos, 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 bool EventHandler::FinalCondition(int RunType, double Condition){
     if (RunType==0){
-        return (Condition<=1e-3);
+        return (Condition<=1e-8);
     }
     else if (RunType==1) return (!mMolecule->EventFinished());
     else std::cerr << "Missing condition type\n";
@@ -174,6 +209,18 @@ bool EventHandler::RungeKutta(int RunType){
     for (int iA=0; iA < mMolecule->GetNatoms(); iA++){
         mAtom = mMolecule->GetAtom(iA);
         newpos[iA] = mAtom->GetPosition();
+        
+        // Catchall condition for going outside the detector
+        if (fabs(newpos[iA][0])>7e-2 || fabs(newpos[iA][1])>7e-2){
+            std::cerr << "Atom " << mAtom->GetName() << " went outside of range.\n";
+            std::vector<double> br(3,0);
+            br[0] = -1;
+            br[1] = -1;
+            br[2] = -1;
+            mAtom->SetPosition(br);
+            continue;
+        }
+
         if (mAtom->GetPosition()[Z] <= 0) {
             isFinished[iA] = 1;
             continue;
@@ -228,7 +275,7 @@ bool EventHandler::RungeKutta(int RunType){
 //            std::cout << iD << " " << delta_y << " " << delta_v << std::endl;
         }
 //        std::cout << std::endl;
-//        std::cout << delta_y[iA][0] << " " << delta_y[iA][1] << " " << delta_y[iA][2] << " " << delta_v[iA][0] << " " << delta_v[iA][1] << " " << delta_v[iA][2] << "\n";
+//        if (RunType==0) std::cout << delta_y[iA][0] << " " << delta_y[iA][1] << " " << delta_y[iA][2] << " " << delta_v[iA][0] << " " << delta_v[iA][1] << " " << delta_v[iA][2] << "\n";
     }
 
     // check for validity of update (both that (Z+dz)>Z and that errors are withiin bounds)
@@ -256,25 +303,26 @@ bool EventHandler::RungeKutta(int RunType){
     bool finality = FinalCondition(RunType, maxnewvel);
 
     for (int iA=0; iA < mMolecule->GetNatoms(); iA++){
-        if ((mask&2)==2 || isFinished[iA]) continue;
+        if ((mask&2)==2) continue;
         mAtom = mMolecule->GetAtom(iA);
         momentum[0] += mAtom->GetVelocity()[0] * mAtom->GetMass();
         momentum[1] += mAtom->GetVelocity()[1] * mAtom->GetMass();
         momentum[2] += mAtom->GetVelocity()[2] * mAtom->GetMass();
+        if (isFinished[iA]) continue;
 
         mAtom->SetPosition(newpos[iA]);
         mAtom->SetVelocity(newvel[iA]);
         mAtom->SetTimeOfFlight(mAtom->GetTimeOfFlight() + timedelta);
-//        std::cout << newpos[iA][0] << " " << newpos[iA][1] << " " << newpos[iA][2] << " | " << newvel[iA][0]*mAtom->GetMass() << " " << newvel[iA][1]*mAtom->GetMass() << " " << newvel[iA][2]*mAtom->GetMass() << std::endl;
+        //if (RunType==1) std::cout << newpos[iA][0] << " " << newpos[iA][1] << " " << newpos[iA][2] << " | " << newvel[iA][0]*mAtom->GetMass() << " " << newvel[iA][1]*mAtom->GetMass() << " " << newvel[iA][2]*mAtom->GetMass() << std::endl;
     }
 //std::cout << std::endl;
     
-    //std::cout << nIter << " " << timedelta << " " << momentum[0] << " " << momentum[1] << " " << momentum[2] << std::endl;
+     std::cout << nIter << " " << timedelta << " " << momentum[0] << " " << momentum[1] << " " << momentum[2] << std::endl;
 //    std::cout << newvel[0][0] << " " << newvel[0][1] << " " << newvel[0][2] << std::endl;
 //    std::cout << maxPosErr << " " << maxVelErr << std::endl;
     if ((mask&2)==0) time += timedelta;
-    if (maxPosErr>0 || maxVelErr>0) timedelta *= pow(1./std::max(maxPosErr,maxVelErr),0.2);
-//    std::cout << timedelta << std::endl;
+    if ((maxPosErr>0 || maxVelErr>0)) timedelta *= pow(1./std::max(maxPosErr,maxVelErr),0.1);
+
 
 //std::cout << std::endl << std::endl;
 //    std::cout << nIter << std::endl << std::endl;;

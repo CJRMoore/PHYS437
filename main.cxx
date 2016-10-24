@@ -5,10 +5,16 @@
 #include "Event/Event.cxx"
 
 #include "TFile.h"
+#include "TTree.h"
+
 
 int main(int argc, char** argv){
     int nIterations = 1;
     if (argc==2) nIterations = atoi(argv[1]);
+
+//    TFile *file = new TFile("output.root","update");
+//    TTree *tree = new TTree("data","OCS explosion data");
+    
     
     for (int i=0; i<nIterations; i++){
         std::cout << "================Initializing!================\n";
