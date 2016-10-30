@@ -317,7 +317,7 @@ bool EventHandler::RungeKutta(int RunType){
     }
 //std::cout << std::endl;
     
-     std::cout << nIter << " " << timedelta << " " << momentum[0] << " " << momentum[1] << " " << momentum[2] << std::endl;
+//     std::cout << nIter << " " << timedelta << " " << momentum[0] << " " << momentum[1] << " " << momentum[2] << std::endl;
 //    std::cout << newvel[0][0] << " " << newvel[0][1] << " " << newvel[0][2] << std::endl;
 //    std::cout << maxPosErr << " " << maxVelErr << std::endl;
     if ((mask&2)==0) time += timedelta;
@@ -333,16 +333,19 @@ bool EventHandler::RungeKutta(int RunType){
 std::vector<double> EventHandler::UpdateDistance(std::vector<std::vector<double> > k, double dt, int RunType){
     std::vector<double> position = mAtom->GetPosition();
     std::vector<double> v_return = mAtom->GetVelocity();
+    std::vector<double> refV = v_return;
     int k_index = k.size();
     for (int j=0; j<position.size(); j++){
         for (int i=0; i<k.size(); i++) {
             position[j] += k[i][j] * timedelta * b_ij[k_index][i];
+            v_return[j] += (refV[j]-v_return[j]) * b_ij[k_index][i];
         }
     }
 
     std::vector<double> E_Field;
     if (RunType==0) E_Field = EfieldFromCharge(position, dt);
     else if (RunType==1) E_Field = mField->GetFieldAtPosition(position);
+//    if (RunType==0 && mAtom->GetIndex()==1) std::cout << E_Field[0] << " " << fabs(mMolecule->GetAtom(0)->GetPosition()[0]-mMolecule->GetAtom(1)->GetPosition()[0]) << std::endl;
     double mass = mAtom->GetMass();
     double qm_ratio = mAtom->GetTotalCharge()/mass;
     for (int i=0; i<3; i++) {
