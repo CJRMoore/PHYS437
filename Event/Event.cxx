@@ -28,12 +28,12 @@ void EventHandler::Init(Field* aField, Molecule* aMolecule){
 
     // resize Runge-Kutta constant vectors and set their values
     errors_pos.resize(2);
-    errors_pos[0] = std::vector<double> (3,5e-21);
-    errors_pos[1] = std::vector<double> (3,2.5e-14);
+    errors_pos[0] = std::vector<double> (3,1e-18);
+    errors_pos[1] = std::vector<double> (3,.2e-12);
 
     errors_vel.resize(2);
-    errors_vel[0] = std::vector<double> (3,2e-5);
-    errors_vel[1] = std::vector<double> (3,2.5e-5);
+    errors_vel[0] = std::vector<double> (3,3e-3);
+    errors_vel[1] = std::vector<double> (3,5e-3);
 
     a_ij.resize(6,0);
     b_ij.resize(6,std::vector<double>(5,0));
@@ -108,15 +108,26 @@ double EventHandler::Run(){
     }
     std::cout << "Finished explosion\n";
     timedelta = std::numeric_limits<double>::epsilon();
-    return 0;
+//    return 0;
 
     std::cout << "Kinetic energies after explosion:\n";   
     for (int i=0; i<mMolecule->GetNatoms(); i++){
         mAtom = mMolecule->GetAtom(i);
         std::vector<double> mvel = mAtom->GetVelocity();
-        double v = pow(mvel[0],2) + pow(mvel[1],2) + pow(mvel[2],2);
-        v = pow(v,.5);
-        double E = 0.5 * mAtom->GetMass() * pow(v,2);
+        //double v = pow(mvel[0],2) + pow(mvel[1],2) + pow(mvel[2],2);
+        //v = pow(v,.5);
+        double E = 0.5 * mAtom->GetMass() *pow(mvel[0],2);//* pow(v,2);
+
+        for (int j=0; j<mMolecule->GetNatoms(); j++){
+            Atom* oAtom = mMolecule->GetAtom(j);
+            if (mAtom->GetIndex() == oAtom->GetIndex()) continue;
+            std::vector<double> mpos = mAtom->GetPosition();
+            std::vector<double> opos = oAtom->GetPosition();
+            double r = pow(mpos[0]-opos[0],2) + pow(mpos[1]-opos[1],2) + pow(mpos[2]-opos[2],2);
+            r = pow(r,0.5);
+            E += K_const * mAtom->GetTotalCharge() * oAtom->GetTotalCharge() / r;
+        }
+
         std::cout << "\t" << mAtom->GetName() << ":\t" << E << std::endl;
     }
 
@@ -229,7 +240,8 @@ bool EventHandler::RungeKutta(int RunType){
         newvel[iA] = mAtom->GetVelocity();
         std::vector<double> vel = newvel[iA];
         std::vector<std::vector<double> > k_vector(0);
-        k_vector.push_back(vel);
+        k_vector.push_back(std::vector<double>(3,0));
+        k_vector[0] = UpdateDistance(k_vector, 0, RunType);
 
         for (int i=1; i<6; i++) 
             k_vector.push_back(UpdateDistance(k_vector, timedelta*a_ij[i], RunType));
@@ -237,34 +249,31 @@ bool EventHandler::RungeKutta(int RunType){
         std::vector<std::vector<double> > y(3,std::vector<double>(2,0));
         std::vector<std::vector<double> > v(3,std::vector<double>(2,0));
         for (int iD=0; iD<3; iD++){
-            y[iD][0] = newpos[iA][iD] + c_ij[0] * k_vector[0][iD] * timedelta
-                                      + c_ij[1] * k_vector[1][iD] * timedelta 
-                                      + c_ij[2] * k_vector[2][iD] * timedelta
-                                      + c_ij[3] * k_vector[3][iD] * timedelta
-                                      + c_ij[4] * k_vector[4][iD] * timedelta
-                                      + c_ij[5] * k_vector[5][iD] * timedelta;
-            y[iD][1] = newpos[iA][iD] + cs_ij[0] * k_vector[0][iD] * timedelta
-                                      + cs_ij[1] * k_vector[1][iD] * timedelta
-                                      + cs_ij[2] * k_vector[2][iD] * timedelta
-                                      + cs_ij[3] * k_vector[3][iD] * timedelta
-                                      + cs_ij[4] * k_vector[4][iD] * timedelta
-                                      + cs_ij[5] * k_vector[5][iD] * timedelta;
+            double Accel_fifth = c_ij[0] * k_vector[0][iD]
+                               + c_ij[1] * k_vector[1][iD]
+                               + c_ij[2] * k_vector[2][iD]
+                               + c_ij[3] * k_vector[3][iD]
+                               + c_ij[4] * k_vector[4][iD]
+                               + c_ij[5] * k_vector[5][iD];
+
+            double Accel_fourth = cs_ij[0] * k_vector[0][iD]
+                                + cs_ij[1] * k_vector[1][iD]
+                                + cs_ij[2] * k_vector[2][iD]
+                                + cs_ij[3] * k_vector[3][iD]
+                                + cs_ij[4] * k_vector[4][iD]
+                                + cs_ij[5] * k_vector[5][iD];
+
+            y[iD][0] = newpos[iA][iD] + vel[iD] * timedelta + 0.5 * Accel_fifth * pow(timedelta,2);
+            y[iD][1] = newpos[iA][iD] + vel[iD] * timedelta + 0.5 * Accel_fourth * pow(timedelta,2);
             delta_y[iA][iD] = fabs(y[iD][0] - y[iD][1]);
 
-            v[iD][0] = c_ij[0] * k_vector[0][iD]
-                     + c_ij[1] * k_vector[1][iD]
-                     + c_ij[2] * k_vector[2][iD]
-                     + c_ij[3] * k_vector[3][iD]
-                     + c_ij[4] * k_vector[4][iD]
-                     + c_ij[5] * k_vector[5][iD];
-//            std::cout << k_vector[0][iD] << " " << k_vector[1][iD] << " " << k_vector[2][iD] << " " << k_vector[3][iD] << " " << k_vector[4][iD] << " " << k_vector[5][iD] << "\n";
-            v[iD][1] = cs_ij[0] * k_vector[0][iD]
-                     + cs_ij[1] * k_vector[1][iD]
-                     + cs_ij[2] * k_vector[2][iD]
-                     + cs_ij[3] * k_vector[3][iD]
-                     + cs_ij[4] * k_vector[4][iD]
-                     + cs_ij[5] * k_vector[5][iD];
+            v[iD][0] = vel[iD] + Accel_fourth * timedelta;
+            v[iD][1] = vel[iD] + Accel_fifth * timedelta;
             delta_v[iA][iD] = fabs(v[iD][0] - v[iD][1]);
+
+//            y[iD][0] = newpos[iA][iD] + v[iD][0] * timedelta - 0.5 * Accel_fifth * pow(timedelta,2);
+//            y[iD][1] = newpos[iA][iD] + v[iD][1] * timedelta - 0.5 * Accel_fourth * pow(timedelta,2);
+//            delta_y[iA][iD] = fabs(y[iD][0] - y[iD][1]);
 
             //std::cout << "\t" << v[iD][0]-newvel[iA][iD] << std::endl;
             
@@ -275,7 +284,7 @@ bool EventHandler::RungeKutta(int RunType){
 //            std::cout << iD << " " << delta_y << " " << delta_v << std::endl;
         }
 //        std::cout << std::endl;
-//        if (RunType==0) std::cout << delta_y[iA][0] << " " << delta_y[iA][1] << " " << delta_y[iA][2] << " " << delta_v[iA][0] << " " << delta_v[iA][1] << " " << delta_v[iA][2] << "\n";
+//        std::cout << delta_y[iA][0] << " " << delta_y[iA][1] << " " << delta_y[iA][2] << " " << delta_v[iA][0] << " " << delta_v[iA][1] << " " << delta_v[iA][2] << "\n";
     }
 
     // check for validity of update (both that (Z+dz)>Z and that errors are withiin bounds)
@@ -313,15 +322,17 @@ bool EventHandler::RungeKutta(int RunType){
         mAtom->SetPosition(newpos[iA]);
         mAtom->SetVelocity(newvel[iA]);
         mAtom->SetTimeOfFlight(mAtom->GetTimeOfFlight() + timedelta);
-        //if (RunType==1) std::cout << newpos[iA][0] << " " << newpos[iA][1] << " " << newpos[iA][2] << " | " << newvel[iA][0]*mAtom->GetMass() << " " << newvel[iA][1]*mAtom->GetMass() << " " << newvel[iA][2]*mAtom->GetMass() << std::endl;
+//        std::cout << newpos[iA][0] << " " << newpos[iA][1] << " " << newpos[iA][2] << " | " << newvel[iA][0]*mAtom->GetMass() << " " << newvel[iA][1]*mAtom->GetMass() << " " << newvel[iA][2]*mAtom->GetMass() << std::endl;
     }
 //std::cout << std::endl;
     
-//     std::cout << nIter << " " << timedelta << " " << momentum[0] << " " << momentum[1] << " " << momentum[2] << std::endl;
+//     std::cout << nIter << " " << timedelta << " " << momentum[0] << " " << newvel[0][0]*mMolecule->GetAtom(0)->GetMass() << " " << newvel[1][0]*mMolecule->GetAtom(1)->GetMass() << std::endl;
+//momentum[1] << " " << momentum[2] << std::endl;
 //    std::cout << newvel[0][0] << " " << newvel[0][1] << " " << newvel[0][2] << std::endl;
 //    std::cout << maxPosErr << " " << maxVelErr << std::endl;
     if ((mask&2)==0) time += timedelta;
     if ((maxPosErr>0 || maxVelErr>0)) timedelta *= pow(1./std::max(maxPosErr,maxVelErr),0.1);
+//    if ((mask&2)==0) std::cout << timedelta << " " << maxPosErr << " " << maxVelErr << std::endl;
 
 
 //std::cout << std::endl << std::endl;
@@ -332,13 +343,13 @@ bool EventHandler::RungeKutta(int RunType){
 
 std::vector<double> EventHandler::UpdateDistance(std::vector<std::vector<double> > k, double dt, int RunType){
     std::vector<double> position = mAtom->GetPosition();
-    std::vector<double> v_return = mAtom->GetVelocity();
-    std::vector<double> refV = v_return;
+    std::vector<double> velocity = mAtom->GetVelocity();
     int k_index = k.size();
     for (int j=0; j<position.size(); j++){
         for (int i=0; i<k.size(); i++) {
-            position[j] += k[i][j] * timedelta * b_ij[k_index][i];
-            v_return[j] += (refV[j]-v_return[j]) * b_ij[k_index][i];
+//            position[j] += k[i][j] * timedelta * b_ij[k_index][i];
+            position[j] += velocity[j] * dt + 0.5 * k[i][j] * timedelta * b_ij[k_index][i] * dt;
+            velocity[j] += k[i][j] * timedelta * b_ij[k_index][i];
         }
     }
 
@@ -348,11 +359,13 @@ std::vector<double> EventHandler::UpdateDistance(std::vector<std::vector<double>
 //    if (RunType==0 && mAtom->GetIndex()==1) std::cout << E_Field[0] << " " << fabs(mMolecule->GetAtom(0)->GetPosition()[0]-mMolecule->GetAtom(1)->GetPosition()[0]) << std::endl;
     double mass = mAtom->GetMass();
     double qm_ratio = mAtom->GetTotalCharge()/mass;
+    std::vector<double> accel(3,0);
     for (int i=0; i<3; i++) {
-        v_return[i] += qm_ratio * E_Field[i] * dt;
+        accel[i] = qm_ratio * E_Field[i];
     }
+//    std::cout << accel[0] << std::endl;
 //    std::cout << E_Field[0] << " " << accel[0] << std::endl;
 //    std::cout << accel[0] << std::endl;
 //    std::cout << "\t" << mAtom->GetIndex() << " " << qm_ratio << "|" << E_s[0] << " " << v_return[0] << " " << accel[0] << "|" << E_s[1] << " " << v_return[1] << " " << accel[1] << "|" << E_s[2] << " " << v_return[2] << " " << accel[2] << std::endl;
-    return v_return;
+    return accel;
 }
