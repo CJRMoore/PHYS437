@@ -29,11 +29,11 @@ void EventHandler::Init(Field* aField, Molecule* aMolecule){
     // resize Runge-Kutta constant vectors and set their values
     errors_pos.resize(2);
     errors_pos[0] = std::vector<double> (3,1e-18);
-    errors_pos[1] = std::vector<double> (3,.2e-12);
+    errors_pos[1] = std::vector<double> (3,.4e-12);
 
     errors_vel.resize(2);
     errors_vel[0] = std::vector<double> (3,3e-3);
-    errors_vel[1] = std::vector<double> (3,5e-3);
+    errors_vel[1] = std::vector<double> (3,1e-2);
 
     a_ij.resize(6,0);
     b_ij.resize(6,std::vector<double>(5,0));
@@ -83,22 +83,19 @@ void EventHandler::Reset(){
 double EventHandler::Run(){
     std::vector<double> momentum(3,0);
 
-    std::cout << "Potential energies before explosion:\n";  
-    for (int i=0; i<mMolecule->GetNatoms(); i++){
-        mAtom = mMolecule->GetAtom(i);
-        double E = 0;
-        for (int j=0; j<mMolecule->GetNatoms(); j++){
-            Atom* oAtom = mMolecule->GetAtom(j);
-            if (mAtom->GetIndex() == oAtom->GetIndex()) continue;
-            std::vector<double> mpos = mAtom->GetPosition();
-            std::vector<double> opos = oAtom->GetPosition();
-            double r = pow(mpos[0]-opos[0],2) + pow(mpos[1]-opos[1],2) + pow(mpos[2]-opos[2],2);
-            r = pow(r,0.5);
-            E += K_const * mAtom->GetTotalCharge() * oAtom->GetTotalCharge() / r;
-        }
-        std::cout << "\t" << mAtom->GetName() << ":\t" << E << std::endl;
+    std::cout << "Potential energy of the system before explosion:\t";  
+    mAtom = mMolecule->GetAtom(0);
+    double E = 0;
+    for (int j=0; j<mMolecule->GetNatoms(); j++){
+        Atom* oAtom = mMolecule->GetAtom(j);
+        if (mAtom->GetIndex() == oAtom->GetIndex()) continue;
+        std::vector<double> mpos = mAtom->GetPosition();
+        std::vector<double> opos = oAtom->GetPosition();
+        double r = pow(mpos[0]-opos[0],2) + pow(mpos[1]-opos[1],2) + pow(mpos[2]-opos[2],2);
+        r = pow(r,0.5);
+        E += K_const * mAtom->GetTotalCharge() * oAtom->GetTotalCharge() / r;
     }
-
+    std::cout << E << std::endl;
 
     
     // Run coulomb explosion 
@@ -106,17 +103,18 @@ double EventHandler::Run(){
         for (int iA=0; iA<mMolecule->GetNatoms(); iA++) fail[iA] = 0;
         //nIter++;
     }
-    std::cout << "Finished explosion\n";
+//    std::cout << "Finished explosion\n";
     timedelta = std::numeric_limits<double>::epsilon();
 //    return 0;
 
-    std::cout << "Kinetic energies after explosion:\n";   
+    std::cout << "Total energy of the system after explosion:\t\t";   
+    E = 0;
     for (int i=0; i<mMolecule->GetNatoms(); i++){
         mAtom = mMolecule->GetAtom(i);
         std::vector<double> mvel = mAtom->GetVelocity();
-        //double v = pow(mvel[0],2) + pow(mvel[1],2) + pow(mvel[2],2);
-        //v = pow(v,.5);
-        double E = 0.5 * mAtom->GetMass() *pow(mvel[0],2);//* pow(v,2);
+        double v = pow(mvel[0],2) + pow(mvel[1],2) + pow(mvel[2],2);
+        v = pow(v,.5);
+        E += 0.5 * mAtom->GetMass() *pow(v,2);//* pow(v,2);
 
         for (int j=0; j<mMolecule->GetNatoms(); j++){
             Atom* oAtom = mMolecule->GetAtom(j);
@@ -128,8 +126,9 @@ double EventHandler::Run(){
             E += K_const * mAtom->GetTotalCharge() * oAtom->GetTotalCharge() / r;
         }
 
-        std::cout << "\t" << mAtom->GetName() << ":\t" << E << std::endl;
     }
+    std::cout << E << std::endl;
+
 
     while (!RungeKutta(1)){
         nIter++;
@@ -284,7 +283,7 @@ bool EventHandler::RungeKutta(int RunType){
 //            std::cout << iD << " " << delta_y << " " << delta_v << std::endl;
         }
 //        std::cout << std::endl;
-//        std::cout << delta_y[iA][0] << " " << delta_y[iA][1] << " " << delta_y[iA][2] << " " << delta_v[iA][0] << " " << delta_v[iA][1] << " " << delta_v[iA][2] << "\n";
+        //std::cout << delta_y[iA][0] << " " << delta_y[iA][1] << " " << delta_y[iA][2] << " " << delta_v[iA][0] << " " << delta_v[iA][1] << " " << delta_v[iA][2] << " " << timedelta << "\n";
     }
 
     // check for validity of update (both that (Z+dz)>Z and that errors are withiin bounds)
@@ -307,16 +306,16 @@ bool EventHandler::RungeKutta(int RunType){
                 maxnewvel = (fabs(mAtom->GetVelocity()[i]-newvel[iA][i]) / fabs(newvel[iA][i]));
         }
     }
-    if ((maxPosErr > 1) || (maxVelErr > 1)) mask |= 1 << 1;
+    if ((maxPosErr >= 1) || (maxVelErr >= 1)) mask |= 1 << 1;
     if ((mask&2)==2 && RunType==1) nIter--;
     bool finality = FinalCondition(RunType, maxnewvel);
 
     for (int iA=0; iA < mMolecule->GetNatoms(); iA++){
         if ((mask&2)==2) continue;
         mAtom = mMolecule->GetAtom(iA);
-        momentum[0] += mAtom->GetVelocity()[0] * mAtom->GetMass();
-        momentum[1] += mAtom->GetVelocity()[1] * mAtom->GetMass();
-        momentum[2] += mAtom->GetVelocity()[2] * mAtom->GetMass();
+//        momentum[0] += mAtom->GetVelocity()[0] * mAtom->GetMass();
+//        momentum[1] += mAtom->GetVelocity()[1] * mAtom->GetMass();
+//        momentum[2] += mAtom->GetVelocity()[2] * mAtom->GetMass();
         if (isFinished[iA]) continue;
 
         mAtom->SetPosition(newpos[iA]);
@@ -329,9 +328,12 @@ bool EventHandler::RungeKutta(int RunType){
 //     std::cout << nIter << " " << timedelta << " " << momentum[0] << " " << newvel[0][0]*mMolecule->GetAtom(0)->GetMass() << " " << newvel[1][0]*mMolecule->GetAtom(1)->GetMass() << std::endl;
 //momentum[1] << " " << momentum[2] << std::endl;
 //    std::cout << newvel[0][0] << " " << newvel[0][1] << " " << newvel[0][2] << std::endl;
-//    std::cout << maxPosErr << " " << maxVelErr << std::endl;
+    //std::cout << maxPosErr << " " << maxVelErr << " " << timedelta << std::endl;
     if ((mask&2)==0) time += timedelta;
-    if ((maxPosErr>0 || maxVelErr>0)) timedelta *= pow(1./std::max(maxPosErr,maxVelErr),0.1);
+    double Factor_Power = 0.2;
+    //if (RunType==1) Factor_Power /= 8;
+    if ((maxPosErr>0 || maxVelErr>0)) timedelta *= pow(1./std::max(maxPosErr,maxVelErr),Factor_Power);
+
 //    if ((mask&2)==0) std::cout << timedelta << " " << maxPosErr << " " << maxVelErr << std::endl;
 
 

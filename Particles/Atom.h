@@ -9,7 +9,7 @@
 class Atom{
   public:
     Atom();
-    Atom(std::string aName, double aAtomicMass, int aAtomicCharge, double posX, double posY, double posZ, int aIndex){ Init(aName, aAtomicMass, aAtomicCharge, posX, posY, posZ, aIndex); };
+    Atom(std::string aName, double aAtomicMass, int aAtomicCharge, std::vector<double> pos, int aIndex){ Init(aName, aAtomicMass, aAtomicCharge, pos, aIndex); };
 
     std::string GetName(){ return AtomName; };
 
@@ -37,7 +37,7 @@ class Atom{
     double GetChargeMassRatio(){ return qm_ratio; };
 
   protected:
-    void Init(std::string aName, double aAtomicMass, int aAtomicCharge, double posX, double posY, double posZ, int aIndex);
+    void Init(std::string aName, double aAtomicMass, int aAtomicCharge, std::vector<double> pos, int aIndex);
 
 
   private:

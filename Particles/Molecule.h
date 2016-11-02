@@ -30,6 +30,7 @@ class Molecule{
 
     void AddAtom(std::string _atom);
     void Ionize();
+    void Rotate(double alpha=-1, double beta=-1, double gamma=-1);
     bool EventFinished();
 
     std::string GetName(){ return MoleculeName; };

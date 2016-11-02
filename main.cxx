@@ -19,7 +19,9 @@ int main(int argc, char** argv){
     for (int i=0; i<nIterations; i++){
         std::cout << "================Initializing!================\n";
         Molecule *m = new Molecule();
+        m->Rotate(0.34402, 1.95147, 3.12161);
         m->Ionize();
+        return 0;
 
         Field *f = new Field();
         EventHandler *e = new EventHandler(f, m);
