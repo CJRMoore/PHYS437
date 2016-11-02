@@ -100,49 +100,44 @@ void Molecule::Rotate(double alpha, double beta, double gamma){
         gamma = distribution(generator);
     }
 
-    std::cout << "a = " << alpha << ", b = " << beta << ", g = " << gamma << std::endl << std::endl;
-
     // Set up Euler matrices (rotate Z, then Y, then Z)
-    std::vector<std::vector<double> > R_z_alpha(3,std::vector<double>(3,0));
-    std::vector<std::vector<double> > R_z_gamma(3,std::vector<double>(3,0));
-    std::vector<std::vector<double> > R_y_beta(3,std::vector<double>(3,0));
-    std::vector<std::vector<std::vector<double> > > Rabg(3);
+    Eigen::MatrixXd R_z_alpha(3,3);
+    Eigen::MatrixXd R_z_gamma(3,3);
+    Eigen::MatrixXd R_y_beta(3,3);
+    std::vector<Eigen::MatrixXd> Rabg(3);
 
-    R_z_alpha[0][0] = cos(alpha); R_z_alpha[0][1] = -sin(alpha);
-    R_z_alpha[1][0] = sin(alpha); R_z_alpha[1][1] = cos(alpha);
-    R_z_alpha[2][2] = 1;
+    R_z_alpha(0,0) = cos(alpha); R_z_alpha(0,1) = -sin(alpha);
+    R_z_alpha(1,0) = sin(alpha); R_z_alpha(1,1) = cos(alpha);
+    R_z_alpha(2,2) = 1;
 
-    R_y_beta[0][0] = cos(beta);  R_y_beta[0][2] = sin(beta);
-    R_y_beta[1][1] = 1;
-    R_y_beta[2][0] = -sin(beta); R_y_beta[2][2] = cos(beta);
+    R_y_beta(0,0) = cos(beta);  R_y_beta(0,2) = sin(beta);
+    R_y_beta(1,1) = 1;
+    R_y_beta(2,0) = -sin(beta); R_y_beta(2,2) = cos(beta);
 
-    R_z_gamma[0][0] = cos(gamma); R_z_gamma[0][1] = -sin(gamma);
-    R_z_gamma[1][0] = sin(gamma); R_z_gamma[1][1] = cos(gamma);
-    R_z_gamma[2][2] = 1;
+    R_z_gamma(0,0) = cos(gamma); R_z_gamma(0,1) = -sin(gamma);
+    R_z_gamma(1,0) = sin(gamma); R_z_gamma(1,1) = cos(gamma);
+    R_z_gamma(2,2) = 1;
 
     // Have the matrices in order.
-    Rabg[0] = R_z_alpha;
+    Rabg[2] = R_z_alpha;
     Rabg[1] = R_y_beta;
-    Rabg[2] = R_z_gamma;
+    Rabg[0] = R_z_gamma;
 
-    std::cout << "Rotating\n";
     for (int iAtom=0; iAtom<nAtoms; iAtom++){
         Atom* cAtom = Atoms[iAtom];
+
         std::vector<double> pos = cAtom->GetPosition();
+        Eigen::VectorXd mPos(3);
         pos[2] -= Zinitial; // Z-position needs to be set back to relative to an origin
-        std::cout << pos[0] << " " << pos[1] << " " << pos[2] << " " << pow(pow(pos[0],2)+pow(pos[1],2)+pow(pos[2],2),0.5) << std::endl;
-        for (int i=0; i<3; i++){ // Rabg loop
-            for (int j=0; j<3; j++){ // First index
-                pos[j] = Rabg[i][j][0] * pos[0] + Rabg[i][j][1] * pos[1] + Rabg[i][j][2] * pos[2];
-//                if (i==1) std::cout << Rabg[i][j][0] * pos[0] << " " << Rabg[i][j][1] * pos[1] << " " << Rabg[i][j][2] * pos[2] << std::endl;
-            }
-            std::cout << pos[0] << " " << pos[1] << " " << pos[2] << " " << pow(pow(pos[0],2)+pow(pos[1],2)+pow(pos[2],2),0.5) << std::endl;
-        }
-        std::cout << pos[0] << " " << pos[1] << " " << pos[2] << " " << pow(pow(pos[0],2)+pow(pos[1],2)+pow(pos[2],2),0.5) << std::endl << std::endl;
+        for (int i=0; i<3; i++) mPos[i] = pos[i];
+
+        // Rotate the molecule
+        for (int i=0; i<3; i++) mPos = Rabg[i] * mPos;
+
+        for (int i=0; i<3; i++) pos[i] = mPos[i];
         pos[2] += Zinitial;
         cAtom->SetPosition(pos);
     }
-    std::cout << "Done\n";
 }
 
 
@@ -167,7 +162,7 @@ void Molecule::Ionize(){
     int nEjectedElectrons = (int)distribution(generator);
     if (nEjectedElectrons<nAtoms) nEjectedElectrons=nAtoms;
     
-    std::cout << "Ejecting " << nEjectedElectrons << " electrons from the molecule.\n";
+//    std::cout << "Ejecting " << nEjectedElectrons << " electrons from the molecule.\n";
     std::vector<int> nE(nAtoms,0);
 
     for (int iAtom=0; iAtom<nAtoms-1; iAtom++) nE[iAtom] = int(nEjectedElectrons/nAtoms);
@@ -190,9 +185,9 @@ void Molecule::Ionize(){
 
         total_e--;
     }*/
-    for (int i=0; i<nAtoms; i++){
-        std::cout << "\tElectrons ejected from " << Atoms[i]->GetName() << ": " << nE[i] << std::endl;
-    }
+  //  for (int i=0; i<nAtoms; i++){
+  //      std::cout << "\tElectrons ejected from " << Atoms[i]->GetName() << ": " << nE[i] << std::endl;
+   // }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

@@ -18,7 +18,7 @@ class EventHandler{
     void SetMolecule(Molecule* _molecule){ mMolecule = _molecule; };
 
     std::vector<double> EfieldFromCharge(std::vector<double> k, double dt=0);
-    double Run();
+    double Run(int RunType);
     bool RungeKutta(int RunType);
     void Reset();
     std::vector<double> UpdateDistance(std::vector<std::vector<double> > k, double dt=0, int Runtype=0);

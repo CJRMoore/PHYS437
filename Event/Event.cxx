@@ -80,10 +80,10 @@ void EventHandler::Reset(){
 // Loop the Runge-Kutta function until the molecule finished flag is returned (all atoms
 // have reached the bottom of the detector)
 //////////////////////////////////////////////////////////////////////////////////////////////////
-double EventHandler::Run(){
+double EventHandler::Run(int RunType){
     std::vector<double> momentum(3,0);
 
-    std::cout << "Potential energy of the system before explosion:\t";  
+/*    std::cout << "Potential energy of the system before explosion:\t";  
     mAtom = mMolecule->GetAtom(0);
     double E = 0;
     for (int j=0; j<mMolecule->GetNatoms(); j++){
@@ -95,11 +95,10 @@ double EventHandler::Run(){
         r = pow(r,0.5);
         E += K_const * mAtom->GetTotalCharge() * oAtom->GetTotalCharge() / r;
     }
-    std::cout << E << std::endl;
-
+    std::cout << E << std::endl;*/
     
     // Run coulomb explosion 
-    while (RungeKutta(0)){
+/*    while (RungeKutta(0)){
         for (int iA=0; iA<mMolecule->GetNatoms(); iA++) fail[iA] = 0;
         //nIter++;
     }
@@ -134,7 +133,11 @@ double EventHandler::Run(){
         nIter++;
     }
     time -= timedelta;
-    return time;
+    return time;*/
+
+    while (RungeKutta(RunType)){
+        if (RunType) nIter++;
+    }
 }
 
 
@@ -333,8 +336,9 @@ bool EventHandler::RungeKutta(int RunType){
     double Factor_Power = 0.2;
     //if (RunType==1) Factor_Power /= 8;
     if ((maxPosErr>0 || maxVelErr>0)) timedelta *= pow(1./std::max(maxPosErr,maxVelErr),Factor_Power);
+    else timedelta *= 2;
 
-//    if ((mask&2)==0) std::cout << timedelta << " " << maxPosErr << " " << maxVelErr << std::endl;
+    //if ((mask&2)==0) printf("%6.4e\t%10.9e\t%10.9e\n",timedelta,maxPosErr,maxVelErr);
 
 
 //std::cout << std::endl << std::endl;
