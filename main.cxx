@@ -17,13 +17,13 @@ int main(int argc, char** argv){
     }
     if (argc==2) nIterations = atoi(argv[1]);
 
-    TFile *file = new TFile(outFile.c_str(),"RECREATE");
+    /*TFile *file = new TFile(outFile.c_str(),"RECREATE");
     TTree *tree = new TTree("data","OCS explosion data");
 
     std::vector<Atom*> InitAtomVector;
     std::vector<Atom*> FinalAtomVector;
     tree->Branch("initial",&InitAtomVector);
-    tree->Branch("final",&FinalAtomVector);
+    tree->Branch("final",&FinalAtomVector);*/
     
     for (int i=0; i<nIterations; i++){
         std::cout << "\rProgress: " << i+1 << std::flush;
@@ -32,15 +32,49 @@ int main(int argc, char** argv){
         m->Rotate();
         m->Ionize();
 
-        InitialAtomVector.resize(m->GetNatoms(),0);
-        FinalAtomVector.resize(m->GetNatoms(),0);
-        for (int i=0; i<m->GetNatoms(); i++) InitialAtomVector[i] = mAtom->GetAtom(i);
-
         Field *f = new Field();
         EventHandler *e = new EventHandler(f, m);
-        ExplosionTime = e->Run(0);
 
-        ToF = e->Run(1);
+        std::cout << "Potential energy of the system before explosion:\t";
+        Atom*  mAtom = m->GetAtom(0);
+        double E = 0;
+        for (int j=0; j<m->GetNatoms(); j++){
+            Atom* oAtom = m->GetAtom(j);
+            if (mAtom->GetIndex() == oAtom->GetIndex()) continue;
+            std::vector<double> mpos = mAtom->GetPosition();
+            std::vector<double> opos = oAtom->GetPosition();
+            double r = pow(mpos[0]-opos[0],2) + pow(mpos[1]-opos[1],2) + pow(mpos[2]-opos[2],2);
+            r = pow(r,0.5);
+            E += K_const * mAtom->GetTotalCharge() * oAtom->GetTotalCharge() / r;
+        }   
+        std::cout << E << std::endl; 
+
+        double ExplosionTime = e->Run(0);
+
+        std::cout << "Total energy of the system after explosion:\t\t";   
+        E = 0;
+        for (int i=0; i<m->GetNatoms(); i++){
+            mAtom = m->GetAtom(i);
+            std::vector<double> mvel = mAtom->GetVelocity();
+            double v = pow(mvel[0],2) + pow(mvel[1],2) + pow(mvel[2],2);
+            v = pow(v,.5);
+            E += 0.5 * mAtom->GetMass() *pow(v,2);//* pow(v,2);
+        }
+        mAtom = m->GetAtom(0);
+/*        for (int j=0; j<m->GetNatoms(); j++){
+            Atom* oAtom = m->GetAtom(j);
+            if (mAtom->GetIndex() == oAtom->GetIndex()) continue;
+            std::vector<double> mpos = mAtom->GetPosition();
+            std::vector<double> opos = oAtom->GetPosition();
+            double r = pow(mpos[0]-opos[0],2) + pow(mpos[1]-opos[1],2) + pow(mpos[2]-opos[2],2);
+            r = pow(r,0.5);
+            E += K_const * mAtom->GetTotalCharge() * oAtom->GetTotalCharge() / r;
+        }*/
+
+        std::cout << E << std::endl;
+continue;
+
+        double ToF = e->Run(1);
 
 /*        std::cout << "================Finished!================\nTime to finish (from explosion): " << ToF << " with " << e->GetNiter() << " iterations\nResults:\n";
         for (int i=0; i<m->GetNatoms(); i++){
@@ -51,10 +85,10 @@ int main(int argc, char** argv){
             std::cout << buf << std::endl;
         }*/
 
-        tree->Fill();
+//        tree->Fill();
         delete m;
         delete f;
         delete e;
     }
-    file->Write();
+//    file->Write();
 }

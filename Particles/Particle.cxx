@@ -73,7 +73,7 @@ void Molecule::AddAtom(std::string _atom){
         m = 32.065;
         q = 16;
         double bondlength = 156.01e-12;
-        double theta = 175 * pi / 180;
+        double theta = 175. * pi / 180;
         position[0] = bondlength * cos(theta);
         position[2] += bondlength * sin(theta);
     }
@@ -147,10 +147,10 @@ void Molecule::Rotate(double alpha, double beta, double gamma){
 // TODO: find out from Benji how the electrons will be ejected and what is expected to happen.
 //////////////////////////////////////////////////////////////////////////////////////////////////
 void Molecule::Ionize(){
-/*    Atoms[0]->SetNelectrons(Atoms[0]->GetNelectrons()-1);
+    Atoms[0]->SetNelectrons(Atoms[0]->GetNelectrons()-1);
     Atoms[1]->SetNelectrons(Atoms[1]->GetNelectrons()-1);
     Atoms[2]->SetNelectrons(Atoms[2]->GetNelectrons()-1);
-    return;*/
+    return;
 
     int total_e = 0;
 

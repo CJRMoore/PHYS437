@@ -41,6 +41,8 @@ class EventHandler{
     std::vector<std::vector<double> > errors_vel;
     std::vector<std::vector<double> > errors_pos;
 
+    double Energy_PreExplosion;
+
     // For the adaptive step sizing.
     std::vector<unsigned int> fail;
     std::vector<double> a_ij;
