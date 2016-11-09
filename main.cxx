@@ -20,10 +20,6 @@ int main(int argc, char** argv){
     TFile *file = new TFile(outFile.c_str(),"RECREATE");
     TTree *tree = new TTree("data","OCS explosion data");
 
-    Molecule *expM = 0;
-    Molecule *tofM = 0;
-    tree->Branch("exp",&expM);
-    tree->Branch("tof",&tofM);
 
     /*std::vector<Atom*> InitAtomVector;
     std::vector<Atom*> FinalAtomVector;
