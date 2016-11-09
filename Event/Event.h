@@ -2,6 +2,7 @@
 #define __EVENT__
 #include <vector>
 #include <string>
+#include "Eigen/Core"
 
 class Field;
 class Molecule;
@@ -21,7 +22,7 @@ class EventHandler{
     double Run(int RunType);
     bool RungeKutta(int RunType);
     void Reset();
-    std::vector<double> UpdateDistance(std::vector<std::vector<double> > k, double dt=0, int Runtype=0);
+    Eigen::ArrayXXd UpdateDistance(std::vector<Eigen::ArrayXXd> k, double dt, int Runtype, int index);
 
     bool FinalCondition(int RunType, double Contidion=0.);
 

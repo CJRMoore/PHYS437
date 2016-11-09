@@ -33,7 +33,7 @@ class Molecule{
     void Rotate(double alpha=-1, double beta=-1, double gamma=-1);
     bool EventFinished();
 
-    std::string GetName(){ return MoleculeName; };
+//    std::string GetName(){ return MoleculeName; };
     
   protected:   
     void Init(std::string aMolecule);
@@ -42,5 +42,6 @@ class Molecule{
     std::string MoleculeName;
     std::vector<Atom*> Atoms;
     unsigned short nAtoms;
+
 };
 #endif

@@ -7,6 +7,7 @@
 
 #include "Eigen/Core"
 
+
 // Initial position of molecule before coulomb explosion.  Currently approximated by
 // half of the distance between the centers of rings 4 and 5 (paper is not specific about
 // initial position of molecule/z-position of laser focal point).
@@ -74,8 +75,8 @@ void Molecule::AddAtom(std::string _atom){
         q = 16;
         double bondlength = 156.01e-12;
         double theta = 175. * pi / 180;
-        position[0] = bondlength * cos(theta);
-        position[2] += bondlength * sin(theta);
+        position[0]  = bondlength * cos(theta);
+        position[1] += bondlength * sin(theta);
     }
     else{
         std::cerr << "Unitientified atom: " << _atom << ".\n";
