@@ -95,7 +95,7 @@ void Molecule::Rotate(double alpha, double beta, double gamma){
         time_t seed;
         time(&seed);
         std::default_random_engine generator(seed);
-        std::uniform_real_distribution<double> distribution (0.0, 2*pi);
+        std::uniform_real_distribution<double> distribution (-2.*pi, 2.*pi);
         alpha = distribution(generator);
         beta  = distribution(generator);
         gamma = distribution(generator);

@@ -220,6 +220,13 @@ bool EventHandler::RungeKutta(int RunType){
         for (int iA=0; iA<mMolecule->GetNatoms(); iA++){
             mAtom = mMolecule->GetAtom(iA);
             newpos[iA] = mAtom->GetPosition();
+            if (fabs(newpos[iA][0]) > 0.07 || fabs(newpos[iA][1]) > 0.07){
+                std::vector<double> br(3,0);
+                br[0] = -1;
+                br[1] = -1;
+                br[2] = -1;
+                mAtom->SetPosition(br);
+            }
             if (mAtom->GetPosition()[2] <= 0) {
                 isFinished[iA] = 1;
                 continue;
@@ -317,7 +324,7 @@ bool EventHandler::RungeKutta(int RunType){
     double Factor_Power = 0.2;
     //if (RunType==1) Factor_Power /= 8;
     if ((maxPosErr>0 || maxVelErr>0)) timedelta *= pow(1./std::max(maxPosErr,maxVelErr),Factor_Power);
-    else timedelta *= 2;
+    else timedelta *= 2*pow(2,.5);
 
 
 //    double m1 = pow(pow(momentum[0],2) + pow(momentum[1],2) + pow(momentum[2],2),0.5);
@@ -340,6 +347,7 @@ Eigen::ArrayXXd EventHandler::UpdateDistance(std::vector<Eigen::ArrayXXd> k, dou
     for (int iA=0; iA<mMolecule->GetNatoms(); iA++){
         mAtom = mMolecule->GetAtom(iA);
         position[iA] = mAtom->GetPosition();
+        if (fabs(position[iA][0]) > 0.07 || fabs(position[iA][1]) > 0.07) continue;
         velocity[iA] = mAtom->GetVelocity();
         for (int iDir=0; iDir<position.size(); iDir++){
             for (int iK=0; iK<index; iK++){
@@ -351,6 +359,7 @@ Eigen::ArrayXXd EventHandler::UpdateDistance(std::vector<Eigen::ArrayXXd> k, dou
     }
 
     for (int iA=0; iA<mMolecule->GetNatoms(); iA++){
+        if (fabs(position[iA][0]) > 0.07 || fabs(position[iA][1]) > 0.07) continue;
         mAtom = mMolecule->GetAtom(iA);
         std::vector<double> E_Field;
         if (RunType==0) E_Field = EfieldFromCharge(position[iA], dt);
