@@ -56,7 +56,7 @@ void Molecule::AddAtom(std::string _atom){
     std::default_random_engine generator(seed);
     std::normal_distribution<double> distribution(6,2);
 
-    std::vector<double> position(3,0);
+    Eigen::Vector3d position(0,0,0);
     position[2] = Zinitial;
 
     double m=0;
@@ -127,17 +127,14 @@ void Molecule::Rotate(double alpha, double beta, double gamma){
     for (int iAtom=0; iAtom<nAtoms; iAtom++){
         Atom* cAtom = Atoms[iAtom];
 
-        std::vector<double> pos = cAtom->GetPosition();
-        Eigen::VectorXd mPos(3);
-        pos[2] -= Zinitial; // Z-position needs to be set back to relative to an origin
-        for (int i=0; i<3; i++) mPos[i] = pos[i];
+        Eigen::Vector3d mPos = cAtom->GetPosition();
+        mPos[2] -= Zinitial; // Z-position needs to be set back to relative to an origin
 
         // Rotate the molecule
         for (int i=0; i<3; i++) mPos = Rabg[i] * mPos;
 
-        for (int i=0; i<3; i++) pos[i] = mPos[i];
-        pos[2] += Zinitial;
-        cAtom->SetPosition(pos);
+        mPos[2] += Zinitial;
+        cAtom->SetPosition(mPos);
     }
 }
 
@@ -197,7 +194,7 @@ void Molecule::Ionize(){
 //////////////////////////////////////////////////////////////////////////////////////////////////
 bool Molecule::EventFinished(){
     bool fin = true;
-    for (int iA=0; iA<nAtoms; iA++) if (Atoms[iA]->GetPosition().back() > 0.) fin=false;
+    for (int iA=0; iA<nAtoms; iA++) if (Atoms[iA]->GetPosition()(2) > 0.) fin=false;
     return fin;
 }
 
@@ -205,7 +202,7 @@ bool Molecule::EventFinished(){
 /************************************************************************************************
 ** Atom Functions
 ************************************************************************************************/
-void Atom::Init(std::string aName, double aAtomicMass, int aAtomicCharge, std::vector<double> pos, int aIndex){
+void Atom::Init(std::string aName, double aAtomicMass, int aAtomicCharge, Eigen::Vector3d pos, int aIndex){
     AtomName = aName;
     mass = aAtomicMass * mp;
     charge = Q * aAtomicCharge;
@@ -213,11 +210,13 @@ void Atom::Init(std::string aName, double aAtomicMass, int aAtomicCharge, std::v
     qm_ratio = charge/mass;
     TimeOfFlight = 0;
 
-    velocity.resize(3,0);
+    velocity << 0., 0., 0.;
+    position = pos;
+/*    velocity.resize(3,0);
     position.resize(3,0);
     position[0] = pos[0];
     position[1] = pos[1];
-    position[2] = pos[2];
+    position[2] = pos[2];*/
 
     index = aIndex;
 }

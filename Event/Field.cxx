@@ -49,7 +49,7 @@ std::vector<double> Field::GetCoordinates(std::string _dir){
 
 
 
-std::vector<double> Field::GetFieldAtPosition(double _x, double _y,  double _z){
+Eigen::Vector3d Field::GetFieldAtPosition(double _x, double _y,  double _z){
     // Compare X
     int indexX = -1;
     int indexY = -1;
@@ -72,7 +72,7 @@ std::vector<double> Field::GetFieldAtPosition(double _x, double _y,  double _z){
         }
     }
 
-    std::vector<double> Efield(3,0);
+    Eigen::Vector3d Efield(3,0);
     Efield[0] = (Potential[indexX][indexZ] - Potential[indexX-1][indexZ])/deltaX;
     Efield[1] = (Potential[indexY][indexZ] - Potential[indexY-1][indexZ])/deltaY;
     Efield[2] = (Potential[indexX][indexZ] - Potential[indexX][indexZ-1])/deltaZ;

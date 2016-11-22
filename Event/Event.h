@@ -18,7 +18,7 @@ class EventHandler{
     void SetField(Field* _Field){ mField = _Field; };
     void SetMolecule(Molecule* _molecule){ mMolecule = _molecule; };
 
-    std::vector<double> EfieldFromCharge(std::vector<double> k, double dt=0);
+    Eigen::Vector3d EfieldFromCharge(Eigen::Vector3d atompos, double dt=0);
     double Run(int RunType);
     bool RungeKutta(int RunType);
     void Reset();
@@ -46,10 +46,10 @@ class EventHandler{
 
     // For the adaptive step sizing.
     std::vector<unsigned int> fail;
-    std::vector<double> a_ij;
-    std::vector<std::vector<double> > b_ij;
-    std::vector<double> c_ij;
-    std::vector<double> cs_ij;
+    Eigen::VectorXd a_ij;
+    Eigen::MatrixXd b_ij;
+    Eigen::VectorXd c_ij;
+    Eigen::VectorXd cs_ij;
 
 };
 

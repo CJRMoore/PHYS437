@@ -53,7 +53,7 @@ int main(int argc, char** argv){
             Atom* atom = m->GetAtom(j);
             mass[j] = atom->GetMass();
             charge[j] = atom->GetTotalCharge();
-            std::vector<double> vel = atom->GetVelocity();
+            Eigen::Vector3d vel = atom->GetVelocity();
             px[j] = vel[0] * mass[j];
             py[j] = vel[1] * mass[j];
             pz[j] = vel[2] * mass[j];

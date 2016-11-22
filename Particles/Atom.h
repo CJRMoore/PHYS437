@@ -2,6 +2,7 @@
 #define __ATOM__
 #include <vector>
 #include <string>
+#include "Eigen/Core"
 
 //class Atom:
 //  Describes an atom within the initial molecule.
@@ -9,15 +10,16 @@
 class Atom{
   public:
     Atom();
-    Atom(std::string aName, double aAtomicMass, int aAtomicCharge, std::vector<double> pos, int aIndex){ Init(aName, aAtomicMass, aAtomicCharge, pos, aIndex); };
+    Atom(std::string aName, double aAtomicMass, int aAtomicCharge,  Eigen::Vector3d pos, int aIndex)
+        { Init(aName, aAtomicMass, aAtomicCharge, pos, aIndex); };
 
     std::string GetName(){ return AtomName; };
 
-    std::vector<double> GetPosition(){ return position; };
-    void SetPosition(std::vector<double> _position){ position = _position; };
+    Eigen::Vector3d GetPosition(){ return position; };
+    void SetPosition(Eigen::Vector3d _position){ position = _position; };
 
-    std::vector<double> GetVelocity(){ return velocity; };
-    void SetVelocity(std::vector<double> _velocity){ velocity = _velocity; };
+    Eigen::Vector3d GetVelocity(){ return velocity; };
+    void SetVelocity(Eigen::Vector3d _velocity){ velocity = _velocity; };
 
     double GetMass(){ return mass; };
     void SetMass(double _mass) { mass = _mass; };
@@ -37,7 +39,7 @@ class Atom{
     double GetChargeMassRatio(){ return qm_ratio; };
 
   protected:
-    void Init(std::string aName, double aAtomicMass, int aAtomicCharge, std::vector<double> pos, int aIndex);
+    void Init(std::string aName, double aAtomicMass, int aAtomicCharge, Eigen::Vector3d pos, int aIndex);
 
 
   private:
@@ -49,7 +51,7 @@ class Atom{
     unsigned short nElectrons;
     unsigned short index;
 
-    std::vector<double> position;
-    std::vector<double> velocity;
+    Eigen::Vector3d position;
+    Eigen::Vector3d velocity;
 };
 #endif
