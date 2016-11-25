@@ -55,10 +55,10 @@ Eigen::Vector3d Field::GetFieldAtPosition(double _x, double _y,  double _z){
     int indexY = -1;
     for (int iX=0; iX<CoordinatesX.size(); iX++){
         if (indexX>0 && indexY>0) break;
-        if (CoordinatesX[iX]>_x){
+        if (indexX==-1 && CoordinatesX[iX]>_x){
             indexX = iX;
         }
-        if (CoordinatesY[iX]>_y){
+        if (indexY==-1 && CoordinatesY[iX]>_y){
             indexY = iX;
         }
     }
@@ -72,7 +72,7 @@ Eigen::Vector3d Field::GetFieldAtPosition(double _x, double _y,  double _z){
         }
     }
 
-    Eigen::Vector3d Efield(3,0);
+    Eigen::Vector3d Efield(0,0,0);
     Efield[0] = (Potential[indexX][indexZ] - Potential[indexX-1][indexZ])/deltaX;
     Efield[1] = (Potential[indexY][indexZ] - Potential[indexY-1][indexZ])/deltaY;
     Efield[2] = (Potential[indexX][indexZ] - Potential[indexX][indexZ-1])/deltaZ;

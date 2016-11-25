@@ -4,19 +4,22 @@
 #include <random>
 #include <ctime>
 #include <math.h>
+#include <chrono>
 
 #include "Eigen/Core"
+#include "Eigen/Geometry"
 
 
 // Initial position of molecule before coulomb explosion.  Currently approximated by
 // half of the distance between the centers of rings 4 and 5 (paper is not specific about
 // initial position of molecule/z-position of laser focal point).
-double Zinitial = 0.5 * (0.5 * (89.61+92.91) + 0.5 * (82.51+85.81)) * 1e-3;
+//double Zinitial = 0.5 * (0.5 * (89.61+92.91) + 0.5 * (82.51+85.81)) * 1e-3;
 
 // Physical constants
-double Q = 1.60217662e-19;
 double mp = 1.6726219e-27;
 double pi = 3.14159265;
+double Q  = 1.60217662e-19 ;
+double Zinitial = 0.5 * (0.5 * (89.61+92.91) + 0.5 * (82.51+85.81)) * 1e-3;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 // Molecule Functions
@@ -50,21 +53,24 @@ Molecule::~Molecule(){
 //          to end of list.
 void Molecule::AddAtom(std::string _atom){
 
-    time_t seed;
-    time(&seed);
+    //time_t seed;
+    //time(&seed);
+    unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
 
     std::default_random_engine generator(seed);
-    std::normal_distribution<double> distribution(6,2);
+    std::normal_distribution<double> angle_dist(1.73951e+02,3.31818e+00);
+    std::normal_distribution<double> OClength_dist(1.13969e+00,1.24398e-01);
+    std::normal_distribution<double> CSlength_dist(1.62649e+00,1.24398e-01);
 
     Eigen::Vector3d position(0,0,0);
-    position[2] = Zinitial;
+    //position[2] = Zinitial;
 
     double m=0;
     int q=0;
     if (_atom=="O"){
         m = 15.9994;
         q = 8;
-        position[0] = 115.78e-12;
+        position[0] = OClength_dist(generator)*1e-10;//115.78e-12;
     }
     else if (_atom=="C"){
         m = 12.0107;
@@ -73,8 +79,11 @@ void Molecule::AddAtom(std::string _atom){
     else if (_atom=="S"){
         m = 32.065;
         q = 16;
-        double bondlength = 156.01e-12;
-        double theta = 175. * pi / 180;
+        double bondlength = CSlength_dist(generator)*1e-10;//156.01e-12;
+        double theta = angle_dist(generator);
+        bondangle = theta;
+        if (theta>180) theta = 360. - theta;
+        theta *= pi/180.;//175. * pi / 180;
         position[0]  = bondlength * cos(theta);
         position[1] += bondlength * sin(theta);
     }
@@ -91,21 +100,27 @@ void Molecule::AddAtom(std::string _atom){
 //////////////////////////////////////////////////////////////////////////////////////////////////
 void Molecule::Rotate(double alpha, double beta, double gamma){
     // If the angles are not set in the call then use three random numbers.
+    //time_t seed;
+    //time(&seed);
+    unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+    std::default_random_engine generator(seed);
+    std::uniform_real_distribution<double> distribution (-1, 1);
     if (alpha==-1 && beta==-1 && gamma==-1){
-        time_t seed;
-        time(&seed);
-        std::default_random_engine generator(seed);
-        std::uniform_real_distribution<double> distribution (-2.*pi, 2.*pi);
-        alpha = distribution(generator);
-        beta  = distribution(generator);
-        gamma = distribution(generator);
+        alpha = distribution(generator) * 2. * pi;
+        beta  = distribution(generator) * 2. * pi;
+        gamma = distribution(generator) * 2. * pi;
     }
 
     // Set up Euler matrices (rotate Z, then Y, then Z)
     Eigen::MatrixXd R_z_alpha(3,3);
-    Eigen::MatrixXd R_z_gamma(3,3);
+    R_z_alpha << 0,0,0,0,0,0,0,0,0;
+    Eigen::MatrixXd R_x_gamma(3,3);
+    R_x_gamma << 0,0,0,0,0,0,0,0,0;
     Eigen::MatrixXd R_y_beta(3,3);
-    std::vector<Eigen::MatrixXd> Rabg(3);
+    R_y_beta << 0,0,0,0,0,0,0,0,0;
+    Eigen::MatrixXd Rotation(3,3);
+    Rotation << 0,0,0,0,0,0,0,0,0;
+    //std::vector<Eigen::MatrixXd> Rabg(3);
 
     R_z_alpha(0,0) = cos(alpha); R_z_alpha(0,1) = -sin(alpha);
     R_z_alpha(1,0) = sin(alpha); R_z_alpha(1,1) = cos(alpha);
@@ -115,24 +130,25 @@ void Molecule::Rotate(double alpha, double beta, double gamma){
     R_y_beta(1,1) = 1;
     R_y_beta(2,0) = -sin(beta); R_y_beta(2,2) = cos(beta);
 
-    R_z_gamma(0,0) = cos(gamma); R_z_gamma(0,1) = -sin(gamma);
+    R_x_gamma(0,0) = 1;
+    R_x_gamma(1,1) = cos(gamma); R_x_gamma(1,2) = -sin(gamma);
+    R_x_gamma(2,1) = sin(gamma); R_x_gamma(2,2) = cos(gamma);
+
+    /*R_z_gamma(0,0) = cos(gamma); R_z_gamma(0,1) = -sin(gamma);
     R_z_gamma(1,0) = sin(gamma); R_z_gamma(1,1) = cos(gamma);
-    R_z_gamma(2,2) = 1;
+    R_z_gamma(2,2) = 1;*/
 
     // Have the matrices in order.
-    Rabg[2] = R_z_alpha;
-    Rabg[1] = R_y_beta;
-    Rabg[0] = R_z_gamma;
+//    Rabg[2] = R_z_alpha;
+//    Rabg[1] = R_y_beta;
+//    Rabg[0] = R_z_gamma;
+    Rotation = R_z_alpha * R_y_beta * R_x_gamma;
 
     for (int iAtom=0; iAtom<nAtoms; iAtom++){
         Atom* cAtom = Atoms[iAtom];
 
         Eigen::Vector3d mPos = cAtom->GetPosition();
-        mPos[2] -= Zinitial; // Z-position needs to be set back to relative to an origin
-
-        // Rotate the molecule
-        for (int i=0; i<3; i++) mPos = Rabg[i] * mPos;
-
+        mPos = Rotation * mPos;
         mPos[2] += Zinitial;
         cAtom->SetPosition(mPos);
     }
@@ -152,9 +168,9 @@ void Molecule::Ionize(){
 
     int total_e = 0;
 
-    time_t seed;
-    time(&seed);
-
+    //time_t seed;
+    //time(&seed);
+    unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
     std::default_random_engine generator(seed);
     std::normal_distribution<double> distribution(6,2);
     int nEjectedElectrons = (int)distribution(generator);
@@ -194,7 +210,11 @@ void Molecule::Ionize(){
 //////////////////////////////////////////////////////////////////////////////////////////////////
 bool Molecule::EventFinished(){
     bool fin = true;
-    for (int iA=0; iA<nAtoms; iA++) if (Atoms[iA]->GetPosition()(2) > 0.) fin=false;
+    for (int iA=0; iA<nAtoms; iA++) {
+   //     printf("%6.4e\t",Atoms[iA]->GetPosition()(2));
+        if (Atoms[iA]->GetPosition()(2) > 0.) fin=false;
+    }
+ //   std::cout << std::endl;
     return fin;
 }
 
@@ -205,7 +225,7 @@ bool Molecule::EventFinished(){
 void Atom::Init(std::string aName, double aAtomicMass, int aAtomicCharge, Eigen::Vector3d pos, int aIndex){
     AtomName = aName;
     mass = aAtomicMass * mp;
-    charge = Q * aAtomicCharge;
+    charge = aAtomicCharge * Q;
     nElectrons = aAtomicCharge;
     qm_ratio = charge/mass;
     TimeOfFlight = 0;

@@ -33,6 +33,14 @@ class Molecule{
     void Rotate(double alpha=-1, double beta=-1, double gamma=-1);
     bool EventFinished();
 
+    double GetAngle(){ return bondangle; };
+    std::vector<double> GetBondLengths(){
+        std::vector<double> bl(2,0);
+        bl[0] = pow(Atoms[0]->GetPosition().dot(Atoms[0]->GetPosition()),.5);
+        bl[1] = pow(Atoms[2]->GetPosition().dot(Atoms[2]->GetPosition()),.5);
+        return bl;
+    }
+
 //    std::string GetName(){ return MoleculeName; };
     
   protected:   
@@ -42,6 +50,7 @@ class Molecule{
     std::string MoleculeName;
     std::vector<Atom*> Atoms;
     unsigned short nAtoms;
+    double bondangle;
 
 };
 #endif

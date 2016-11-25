@@ -22,7 +22,7 @@ class EventHandler{
     double Run(int RunType);
     bool RungeKutta(int RunType);
     void Reset();
-    Eigen::ArrayXXd UpdateDistance(std::vector<Eigen::ArrayXXd> k, double dt, int Runtype, int index);
+    void UpdateDistance(std::vector<Eigen::MatrixXd> &k, double dt, int Runtype, int index);
 
     bool FinalCondition(int RunType, double Contidion=0.);
 
