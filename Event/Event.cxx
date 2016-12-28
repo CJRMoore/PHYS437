@@ -1,11 +1,14 @@
 #include <math.h>
 #include <limits>
 #include <algorithm>
+
 #include "Event.h"
 #include "Field.h"
 #include "/home/colin/GoogleDrive/437A/Code/Particles/Molecule.h"
 #include "/home/colin/GoogleDrive/437A/Code/Particles/Atom.h"
+
 #include "Eigen/Core"
+
 #define PI 3.14159265
 
 double epsilon = 8.85419e-12;
