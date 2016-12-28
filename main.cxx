@@ -1,4 +1,5 @@
 #include <iostream>
+#include <omp.h>
 #include "Particles/Molecule.h"
 #include "Event/Field.h"
 #include "Event/Event.h"
@@ -8,11 +9,63 @@
 #include "TTree.h"
 #include "TROOT.h"
 
+
+void ProgressBar(double now, double total){
+    float progress = now/total;
+    int barWidth = 70;
+
+    std::cout << "[";
+    int pos = barWidth * progress;
+    for (int i = 0; i < barWidth; ++i) {
+        if (i < pos) std::cout << "=";
+        else if (i == pos) std::cout << ">";
+        else std::cout << " ";
+    }
+    std::cout << "] " << int(progress * 100.0) << " %\r";
+    std::cout.flush();
+}
+
+
 int main(int argc, char** argv){
     int nIterations = 1;
-    std::string outFile = "output.root";
+    std::string outFile = "";
     std::string openMethod = "RECREATE";
-    if (argc==3) {
+    std::string fieldFile = "geo_default.txt";
+    int corecount = omp_get_num_threads();
+
+    for (int i=1; i<argc; i++){
+        if (strcmp(argv[i],"-n")==0)        nIterations = atoi(argv[i+1]);
+        else if (strcmp(argv[i],"-c")==0)     corecount = atoi(argv[i+1]);
+        else if (strcmp(argv[i],"-o")==0)       outFile = argv[i+1];
+        else if (strcmp(argv[i],"-m")==0)    openMethod = argv[i+1];
+        else if (strcmp(argv[i],"-f")==0)     fieldFile = argv[i+1];
+        else continue;
+        i++;
+    }
+    if (outFile=="") {
+        std::cerr << "Missing output file; use argument -o <output file>\n";
+        std::cerr << "Use default output file? (output.root)\t[Y/n]\n";
+        char filebuf[100];
+        std::cin >> filebuf;
+        if (strcmp(filebuf,"n")==0 || strcmp(filebuf,"N")==0){
+            std::cerr << "Breaking...\n";
+            return 0;
+        }
+        else if (strcmp(filebuf,"y")==0 || strcmp(filebuf,"Y")==0){
+            std::cerr << "Using default output file\n";
+            outFile = "output.root";
+        }
+        else {
+            std::cerr << "Unknown input: " << filebuf << std::endl;
+            std::cerr << "Breaking...\n";
+            return 0;
+        }
+    }
+
+    omp_set_num_threads(corecount);
+    
+
+/*    if (argc==3) {
         nIterations = atoi(argv[1]);
         outFile = argv[2];
     }
@@ -21,10 +74,8 @@ int main(int argc, char** argv){
         outFile = argv[2];
         openMethod = argv[3];
     }
-    else if (argc==2) nIterations = atoi(argv[1]);
+    else if (argc==2) nIterations = atoi(argv[1]);*/
 
-    std::vector<double> bondlengths(2,0);
-    double bondangle = 0;
     std::vector<double> mass(3,0);
     std::vector<double> charge(3,0);
     std::vector<double> x(3,0);
@@ -42,8 +93,6 @@ int main(int argc, char** argv){
         tree = new TTree("data","OCS explosion data");
         tree->Branch("mass",&mass);
         tree->Branch("charge",&charge);
-        tree->Branch("bondL",&bondlengths);
-        tree->Branch("bondA",&bondangle);
         tree->Branch("x",&x);
         tree->Branch("y",&y);
         tree->Branch("tof",&tof);
@@ -61,8 +110,6 @@ int main(int argc, char** argv){
         std::vector<double> *pyp = &py;
         std::vector<double> *pzp = &pz;
 
-        std::vector<double> *blp = &bondlengths;
-        double *bap = &bondangle;
         tree->SetBranchAddress("mass",&mp);
         tree->SetBranchAddress("charge",&cp);
         tree->SetBranchAddress("x",&xp);
@@ -71,31 +118,29 @@ int main(int argc, char** argv){
         tree->SetBranchAddress("px",&pxp);
         tree->SetBranchAddress("py",&pyp);
         tree->SetBranchAddress("pz",&pzp);
-        tree->SetBranchAddress("bondL",&blp);
-        tree->SetBranchAddress("bondA",&bap);
     }
 
-    Field *f = new Field();
+    Field *f = new Field(fieldFile);
 
+    int prognow = 0;
+    
+    #pragma omp parallel for
     for (int i=0; i<nIterations; i++){
-        //std::cout << "\n\nNEW RUN" << std::endl;
-//        std::cout << "================Initializing!================\n";
-        std::cerr << "\rProgress: " << i+1 << "\tInitializing Molecules" << std::flush;
-        Molecule *m = new Molecule();
-        bondangle = m->GetAngle();
-        bondlengths = m->GetBondLengths();
+        #pragma omp critical
+        {
+            prognow++;
+            ProgressBar((double) prognow, (double) nIterations);
+        }
+        
+        Molecule *m;
+        #pragma omp critical
+        {
+            m = new Molecule();
+        }
         m->Rotate();
         m->Ionize();
 
-        /*for (int j=0; j<m->GetNatoms(); j++){
-            Atom *atom = m->GetAtom(j);
-            Eigen::Vector3d translate = atom->GetPosition();
-            translate[2] += Zinitial;
-            atom->SetPosition(translate);
-        } */
-
         EventHandler *e = new EventHandler(f, m);
-        std::cerr << "\rProgress: " << i+1 << "\tExplosion             " << std::flush;
         double ExplosionTime = e->Run(0);
 
         for (int j=0; j<m->GetNatoms(); j++){
@@ -106,18 +151,9 @@ int main(int argc, char** argv){
             px[j] = vel[0] * mass[j];
             py[j] = vel[1] * mass[j];
             pz[j] = vel[2] * mass[j];
-
-            //Eigen::Vector3d translate = atom->GetPosition();
-            //translate[2] += Zinitial;
-            //atom->SetPosition(translate);
         }
 
-
-//        std::cout << "Finished explosion in " << ExplosionTime << " seconds.\n";
-        std::cerr << "\rProgress: " << i+1 << "\tExtraction            " << std::flush;
         double ToF = e->Run(1);
-
-
 
         bool failed=false;
         for (int j=0; j<m->GetNatoms(); j++){
@@ -127,18 +163,17 @@ int main(int argc, char** argv){
             tof[j] = atom->GetTimeOfFlight();
             if (fabs(x[j]+1)<=1e-12 || fabs(y[j]+1)<=1e-12) failed=true;
         }
-        
-        if (!failed){
-            tree->Fill();
-            //file->Write();
+
+        #pragma omp critical
+        {
+            if (!failed) tree->Fill();
         }
-        //else i--;
         delete m;
         delete e;
     }
+
     std::cout << std::endl;
     file->Write();
-    //}
     delete f;
 
     delete tree;

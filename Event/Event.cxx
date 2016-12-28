@@ -34,7 +34,7 @@ void EventHandler::Init(Field* aField, Molecule* aMolecule){
     errors_pos[1] = std::vector<double> (3,1e-11);
 
     errors_vel.resize(2);
-    errors_vel[0] = std::vector<double> (3,3e-4);
+    errors_vel[0] = std::vector<double> (3,3e-5);
     errors_vel[1] = std::vector<double> (3,3e-3);
 
     a_ij.resize(6);
@@ -340,7 +340,7 @@ bool EventHandler::RungeKutta(int RunType){
         //momentum[2] += mAtom->GetVelocity()[2] * mAtom->GetMass();
         //if (isFinished[iA]) continue;
 
-//        printf("%2i | %6.4e %6.4e %6.4e | %6.4e %6.4e %6.4e\n",iA,newpos[iA][0],newpos[iA][1],newpos[iA][2],newvel[iA][0],newvel[iA][1],newvel[iA][2]);
+//        printf("%2i %6.4e %6.4e %6.4e %6.4e\n",iA,mAtom->GetTimeOfFlight(),newpos[iA][0],newpos[iA][1],newpos[iA][2]);
         mAtom->SetPosition(newpos[iA]);
         mAtom->SetVelocity(newvel[iA]);
         mAtom->SetTimeOfFlight(mAtom->GetTimeOfFlight() + timedelta);
@@ -353,13 +353,15 @@ bool EventHandler::RungeKutta(int RunType){
 //    std::cout << newvel[0][0] << " " << newvel[0][1] << " " << newvel[0][2] << std::endl;
     //std::cout << maxPosErr << " " << maxVelErr << " " << timedelta << std::endl;
 //    if ((mask&2)==0) time += timedelta;
+
+
     double Factor_Power = 0.2;
-    //if (RunType==1) Factor_Power /= 8;
     if ((maxPosErr>0 || maxVelErr>0)) { 
-//        if (maxVelErr>maxPosErr) Factor_Power *= 2;
         timedelta *= pow(1./std::max(maxPosErr,maxVelErr),Factor_Power);
     }
     else timedelta *= 2*pow(2,.5);
+
+
 //    std::cout << newpos[0](0) << " " << newpos[0](1) << " " << newpos[0](2) << "\t" << newvel[0](0) << " " << newvel[0](1) << " " << newvel[0](2) << std::endl;
 
 
@@ -399,12 +401,13 @@ void EventHandler::UpdateDistance(std::vector<Eigen::MatrixXd> &k, double dt, in
         Eigen::Vector3d E_Field;
         if (RunType==0) E_Field = EfieldFromCharge(position[iA], dt);
         else if (RunType==1) E_Field = mField->GetFieldAtPosition(position[iA]);
-        //if (RunType==1) std::cout << E_Field (0) << " " << E_Field (1) << " " << E_Field (2) << std::endl;
+//        if (RunType==1) printf("%i\t%6.4e\t%6.4e\t%6.4e\n",iA,E_Field(0),E_Field(1),E_Field(2));
 //        if (RunType==0 && mAtom->GetIndex()==1) std::cout << E_Field[0] << " " << fabs(mMolecule->GetAtom(0)->GetPosition()[0]-mMolecule->GetAtom(1)->GetPosition()[0]) << std::endl;
         double mass = mAtom->GetMass();
         double qm_ratio = mAtom->GetTotalCharge()/mass;
 //        std::cout << qm_ratio * E_Field.transpose() << std::endl;
         k[iA].row(index) = qm_ratio * E_Field.transpose();    
+        //if (RunType==1) std::cout << qm_ratio * E_Field.transpose() << std::endl;
         /*for (int iDir=0; iDir<3; iDir++) {
             accel(iA,iDir) = qm_ratio * E_Field[iDir];
         }*/

@@ -61,8 +61,10 @@ void Molecule::AddAtom(std::string _atom){
     std::normal_distribution<double> angle_dist(1.73951e+02,3.31818e+00);
     std::normal_distribution<double> OClength_dist(1.13969e+00,1.24398e-01);
     std::normal_distribution<double> CSlength_dist(1.62649e+00,1.24398e-01);
+    std::uniform_int_distribution<int> yaxis_shift(0,1);
 
-    Eigen::Vector3d position(0,0,0);
+    Eigen::Vector3d position;
+    position << 0, 0, 0;
     //position[2] = Zinitial;
 
     double m=0;
@@ -70,6 +72,7 @@ void Molecule::AddAtom(std::string _atom){
     if (_atom=="O"){
         m = 15.9994;
         q = 8;
+//        int shift = yaxis_shift(generator);
         position[0] = OClength_dist(generator)*1e-10;//115.78e-12;
     }
     else if (_atom=="C"){
@@ -84,8 +87,15 @@ void Molecule::AddAtom(std::string _atom){
         bondangle = theta;
         if (theta>180) theta = 360. - theta;
         theta *= pi/180.;//175. * pi / 180;
-        position[0]  = bondlength * cos(theta);
-        position[1] += bondlength * sin(theta);
+        //if (Atoms[0]->GetPosition()[0]>1e-15){
+            position[0]  = bondlength * cos(theta);
+            position[1]  = bondlength * sin(theta);
+        //}
+        //else {
+        //    position[1]  = bondlength * cos(theta);
+        //    position[0]  = bondlength * sin(theta);
+        //}
+        if (yaxis_shift(generator)) position[1] *= -1;
     }
     else{
         std::cerr << "Unitientified atom: " << _atom << ".\n";
@@ -104,11 +114,49 @@ void Molecule::Rotate(double alpha, double beta, double gamma){
     //time(&seed);
     unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
     std::default_random_engine generator(seed);
-    std::uniform_real_distribution<double> distribution (-1, 1);
+    std::uniform_real_distribution<double> distribution (0, 1);
+
+/*
+    Eigen::Vector3d Euler_vector;
+
+        Euler_vector << 0,0,0;
+        double x = distribution(generator);
+        double y = distribution(generator);
+        double z = distribution(generator);
+        Euler_vector << x, y, z;
+        Euler_vector /= pow(Euler_vector.dot(Euler_vector),0.5); // Make unit vector
+    
+        Eigen::Vector3d ref_vector = Atoms[0]->GetPosition();
+        ref_vector /= pow(ref_vector.dot(ref_vector),0.5);
+        Eigen::Vector3d cross_vector = (Eigen::Vector3d) ref_vector.cross(Euler_vector);
+        Eigen::Vector3d cross_vector2 = (Eigen::Vector3d) cross_vector.cross(Euler_vector);
+    
+        double phi   = distribution(generator) * pi;
+        double theta = distribution(generator) * pi/2;
+        double psi   = distribution(generator) * pi;
+        for (int iAtom=0; iAtom<nAtoms; iAtom++){
+            Atom* cAtom = Atoms[iAtom];
+            Eigen::Vector3d mPos = cAtom->GetPosition();
+            Eigen::Vector3d rot1 = cos(phi)*mPos + sin(phi)*(Euler_vector.cross(mPos)) + (1.-cos(phi)) * (Euler_vector.dot(mPos)) * Euler_vector;
+            Eigen::Vector3d rot2 = cos(psi)*rot1 + sin(psi)*(cross_vector.cross(rot1)) + (1.-cos(psi)) * (cross_vector.dot(rot1)) * cross_vector;
+            Eigen::Vector3d rot3 = cos(theta)*rot2 + sin(theta)*(cross_vector2.cross(rot2)) + (1.-cos(theta)) * (cross_vector2.dot(rot2)) * cross_vector2;
+
+            cAtom->SetPosition(rot3);
+        }
+
+    for (int iAtom=0; iAtom<nAtoms; iAtom++){
+        Atom* cAtom = Atoms[iAtom];
+        Eigen::Vector3d mPos = cAtom->GetPosition();
+        mPos(2) += Zinitial;
+        cAtom->SetPosition(mPos);
+    }
+*/
+
+
     if (alpha==-1 && beta==-1 && gamma==-1){
-        alpha = distribution(generator) * 2. * pi;
-        beta  = distribution(generator) * 2. * pi;
-        gamma = distribution(generator) * 2. * pi;
+        alpha = distribution(generator) * 2. * pi - pi;
+        beta  = distribution(generator) * pi - (pi/2);
+        gamma = distribution(generator) * 2. * pi - pi;
     }
 
     // Set up Euler matrices (rotate Z, then Y, then Z)
@@ -134,14 +182,7 @@ void Molecule::Rotate(double alpha, double beta, double gamma){
     R_x_gamma(1,1) = cos(gamma); R_x_gamma(1,2) = -sin(gamma);
     R_x_gamma(2,1) = sin(gamma); R_x_gamma(2,2) = cos(gamma);
 
-    /*R_z_gamma(0,0) = cos(gamma); R_z_gamma(0,1) = -sin(gamma);
-    R_z_gamma(1,0) = sin(gamma); R_z_gamma(1,1) = cos(gamma);
-    R_z_gamma(2,2) = 1;*/
-
     // Have the matrices in order.
-//    Rabg[2] = R_z_alpha;
-//    Rabg[1] = R_y_beta;
-//    Rabg[0] = R_z_gamma;
     Rotation = R_z_alpha * R_y_beta * R_x_gamma;
 
     for (int iAtom=0; iAtom<nAtoms; iAtom++){
@@ -232,11 +273,6 @@ void Atom::Init(std::string aName, double aAtomicMass, int aAtomicCharge, Eigen:
 
     velocity << 0., 0., 0.;
     position = pos;
-/*    velocity.resize(3,0);
-    position.resize(3,0);
-    position[0] = pos[0];
-    position[1] = pos[1];
-    position[2] = pos[2];*/
 
     index = aIndex;
 }

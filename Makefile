@@ -3,7 +3,7 @@ R_LIBS    =     `root-config --libs`
 R_CFLAGS  =     `root-config --cflags`
 R_ALL     =    $(R_LDFLAGS) $(R_LIBS) $(R_CFLAGS)
 
-FLAGS = -O3 -std=c++11 -I/home/colin/GoogleDrive/437A/Code/ 
+FLAGS = -g -O3 -std=c++11 -I/home/colin/GoogleDrive/437A/Code/ -fopenmp
 RFLAGS= ${FLAGS} ${R_ALL}
 
 Run: Particle.o Field.o Event.o main.cxx
