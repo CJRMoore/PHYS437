@@ -100,8 +100,10 @@ Eigen::Vector3d Field::GetFieldAtPosition(double _x, double _y,  double _z){
     int indexM = (indexX + indexY) / 2;
 
     Eigen::Vector3d Efield(0,0,0);
-    Efield[0] = -(Potential[indexX][indexZ] - Potential[indexX-1][indexZ])/deltaX;
-    Efield[1] = -(Potential[indexY][indexZ] - Potential[indexY-1][indexZ])/deltaY;
-    Efield[2] = -(Potential[indexM][indexZ] - Potential[indexM][indexZ-1])/deltaZ;
+    if (fabs(Potential[indexM][indexZ])>0 && fabs(Potential[indexM][indexZ-1])>0){
+        Efield[0] = -(Potential[indexX][indexZ] - Potential[indexX-1][indexZ])/deltaX;
+        Efield[1] = -(Potential[indexY][indexZ] - Potential[indexY-1][indexZ])/deltaY;
+        Efield[2] = -(Potential[indexM][indexZ] - Potential[indexM][indexZ-1])/deltaZ;
+    }
     return Efield;
 }

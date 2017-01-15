@@ -9,15 +9,16 @@
 #include <string>
 #include <iostream>
 #include "Atom.h"
+#include <Eigen/Core>
 
 //class Molecule:
 //  Container for the geometry of a molecule and the description of the atoms within the molecule.
 //  Responsible for keeping track of the atoms.
 class Molecule{
   public:
-    Molecule(){ Init("OCS"); }
+    Molecule(){ Init("OCS",0); }
     ~Molecule();
-    Molecule(std::string aMolecule){ Init(aMolecule); }
+    Molecule(std::string aMolecule, unsigned int seed=0){ Init(aMolecule,seed); }
 
     unsigned short GetNatoms(){ return nAtoms; };
     Atom* GetAtom(int iAtom){
@@ -28,10 +29,12 @@ class Molecule{
         else return Atoms[iAtom];
     }
 
-    void AddAtom(std::string _atom);
-    void Ionize();
-    void Rotate(double alpha=-1, double beta=-1, double gamma=-1);
+    void AddAtom(std::string _atom, unsigned int seed=0);
+    void Ionize(int I1=1, int I2=1, int I3=1);
+    Eigen::Matrix3d GenerateRotation(unsigned seed=0);
+    void Rotate(unsigned int seed=0);
     bool EventFinished();
+    double GetKE();
 
     double GetAngle(){ return bondangle; };
     std::vector<double> GetBondLengths(){
@@ -41,10 +44,12 @@ class Molecule{
         return bl;
     }
 
+    void Randomize();
+
 //    std::string GetName(){ return MoleculeName; };
     
   protected:   
-    void Init(std::string aMolecule);
+    void Init(std::string aMolecule, unsigned int seed=0);
 
   private:
     std::string MoleculeName;

@@ -1,5 +1,8 @@
 #include <iostream>
 #include <omp.h>
+#include <fstream>
+#include <sstream>
+
 #include "Particles/Molecule.h"
 #include "Event/Field.h"
 #include "Event/Event.h"
@@ -9,20 +12,19 @@
 #include "TTree.h"
 #include "TROOT.h"
 
-
 void ProgressBar(double now, double total){
     float progress = now/total;
     int barWidth = 70;
 
-    std::cout << "[";
+    std::cerr << "[";
     int pos = barWidth * progress;
     for (int i = 0; i < barWidth; ++i) {
-        if (i < pos) std::cout << "=";
-        else if (i == pos) std::cout << ">";
-        else std::cout << " ";
+        if (i < pos) std::cerr << "=";
+        else if (i == pos) std::cerr << ">";
+        else std::cerr << " ";
     }
-    std::cout << "] " << int(progress * 100.0) << " %\r";
-    std::cout.flush();
+    std::cerr << "] " << int(progress * 100.0) << " %\r";
+    std::cerr.flush();
 }
 
 
@@ -32,6 +34,8 @@ int main(int argc, char** argv){
     std::string openMethod = "RECREATE";
     std::string fieldFile = "geo_default.txt";
     int corecount = omp_get_num_threads();
+    int I1=1, I2=1, I3=1;
+    std::string seedFile = "";
 
     for (int i=1; i<argc; i++){
         if (strcmp(argv[i],"-n")==0)        nIterations = atoi(argv[i+1]);
@@ -39,6 +43,13 @@ int main(int argc, char** argv){
         else if (strcmp(argv[i],"-o")==0)       outFile = argv[i+1];
         else if (strcmp(argv[i],"-m")==0)    openMethod = argv[i+1];
         else if (strcmp(argv[i],"-f")==0)     fieldFile = argv[i+1];
+        else if (strcmp(argv[i],"-s")==0)      seedFile = argv[i+1];
+        else if (strcmp(argv[i],"-I")==0){
+            I1 = atoi(argv[i+1]);
+            I2 = atoi(argv[i+2]);
+            I3 = atoi(argv[i+3]);
+            i += 3;
+        }
         else continue;
         i++;
     }
@@ -64,7 +75,20 @@ int main(int argc, char** argv){
 
     omp_set_num_threads(corecount);
     
+    std::vector<unsigned int> seeds(0);
+    if (seedFile!=""){
+        if (nIterations!=1) std::cerr << "Overriding number of iterations (given seed file)\n";
+        std::ifstream sfile(seedFile.c_str());
+        std::string line;
+        unsigned int seed;
 
+        while (std::getline(sfile,line)){
+            std::stringstream ss(line);
+            ss >> seed;
+            seeds.push_back(seed);
+        }
+        nIterations = seeds.size();
+    }
 /*    if (argc==3) {
         nIterations = atoi(argv[1]);
         outFile = argv[2];
@@ -80,10 +104,15 @@ int main(int argc, char** argv){
     std::vector<double> charge(3,0);
     std::vector<double> x(3,0);
     std::vector<double> y(3,0);
+    std::vector<double> x0(3,0);
+    std::vector<double> y0(3,0);
+    std::vector<double> z0(3,0);
     std::vector<double> tof(3,0);
     std::vector<double> px(3,0);
     std::vector<double> py(3,0);
     std::vector<double> pz(3,0);
+    double kinetic=0;
+    unsigned int Bseed = 0;
 
     gROOT->ProcessLine("#include <vector>");
 
@@ -95,10 +124,15 @@ int main(int argc, char** argv){
         tree->Branch("charge",&charge);
         tree->Branch("x",&x);
         tree->Branch("y",&y);
+        tree->Branch("x0",&x0);
+        tree->Branch("y0",&y0);
+        tree->Branch("z0",&z0);
         tree->Branch("tof",&tof);
         tree->Branch("px",&px);
         tree->Branch("py",&py);
         tree->Branch("pz",&pz);
+        tree->Branch("ke",&kinetic);
+        tree->Branch("seed",&Bseed);
     }
     else{
         std::vector<double> *mp = &mass;
@@ -124,8 +158,23 @@ int main(int argc, char** argv){
 
     int prognow = 0;
     
-    #pragma omp parallel for
+    #pragma omp parallel for ordered
     for (int i=0; i<nIterations; i++){
+        // Make thread safe
+            std::vector<double> tmass(3,0);
+            std::vector<double> tcharge(3,0);
+            std::vector<double> tx(3,0);
+            std::vector<double> ty(3,0);
+            std::vector<double> tx0(3,0);
+            std::vector<double> ty0(3,0);
+            std::vector<double> tz0(3,0);
+            std::vector<double> ttof(3,0);
+            std::vector<double> tpx(3,0);
+            std::vector<double> tpy(3,0);
+            std::vector<double> tpz(3,0);
+            double tkinetic=0;
+            unsigned int tBseed = 0;
+
         #pragma omp critical
         {
             prognow++;
@@ -133,24 +182,50 @@ int main(int argc, char** argv){
         }
         
         Molecule *m;
-        #pragma omp critical
+//        #pragma omp ordered
         {
-            m = new Molecule();
+            #pragma omp critical
+            {
+                if (seeds.size()>0) {
+                    tBseed = seeds[i];
+                    m = new Molecule("",seeds[i]);
+                    m->Rotate(seeds[i]);
+                }
+                else {
+                    m = new Molecule();
+       // }
+                    m->Rotate();
+                }
+            }
         }
-        m->Rotate();
-        m->Ionize();
-
-        EventHandler *e = new EventHandler(f, m);
-        double ExplosionTime = e->Run(0);
+        m->Ionize(I1,I2,I3);
 
         for (int j=0; j<m->GetNatoms(); j++){
             Atom* atom = m->GetAtom(j);
-            mass[j] = atom->GetMass();
-            charge[j] = atom->GetTotalCharge();
+            Eigen::Vector3d pos = atom->GetPosition();
+            tx0[j] = pos[0];
+            ty0[j] = pos[1];
+            tz0[j] = pos[2];
+        }
+        
+        EventHandler *e = new EventHandler(f, m);
+        double ExplosionTime = e->Run(0);
+
+        tkinetic = m->GetKE();
+
+        double Zinitial = 0.5 * (0.5 * (89.61+92.91) + 0.5 * (82.51+85.81)) * 1e-3;
+        for (int j=0; j<m->GetNatoms(); j++){
+            Atom* atom = m->GetAtom(j);
+            tmass[j] = atom->GetMass();
+            tcharge[j] = atom->GetTotalCharge();
             Eigen::Vector3d vel = atom->GetVelocity();
-            px[j] = vel[0] * mass[j];
-            py[j] = vel[1] * mass[j];
-            pz[j] = vel[2] * mass[j];
+            tpx[j] = vel[0] * tmass[j];
+            tpy[j] = vel[1] * tmass[j];
+            tpz[j] = vel[2] * tmass[j];
+
+            Eigen::Vector3d pos = atom->GetPosition();
+            pos[2] += Zinitial;
+            atom->SetPosition(pos);
         }
 
         double ToF = e->Run(1);
@@ -158,21 +233,38 @@ int main(int argc, char** argv){
         bool failed=false;
         for (int j=0; j<m->GetNatoms(); j++){
             Atom* atom = m->GetAtom(j);
-            x[j] = atom->GetPosition()[0];
-            y[j] = atom->GetPosition()[1];
-            tof[j] = atom->GetTimeOfFlight();
-            if (fabs(x[j]+1)<=1e-12 || fabs(y[j]+1)<=1e-12) failed=true;
+            tx[j] = atom->GetPosition()[0];
+            ty[j] = atom->GetPosition()[1];
+            ttof[j] = atom->GetTimeOfFlight();
+            if (fabs(tx[j]+1)<=1e-12 || fabs(ty[j]+1)<=1e-12) failed=true;
         }
 
         #pragma omp critical
         {
-            if (!failed) tree->Fill();
+            if (!failed) {
+                for (int j=0; j<m->GetNatoms(); j++){
+                    mass[j] = tmass[j];
+                    charge[j] = tcharge[j];
+                    x[j] = tx[j];
+                    y[j] = ty[j];
+                    x0[j] = tx0[j];
+                    y0[j] = ty0[j];
+                    z0[j] = tz0[j];
+                    tof[j] = ttof[j];
+                    px[j] = tpx[j];
+                    py[j] = tpy[j];
+                    pz[j] = tpz[j];
+                }
+                kinetic = tkinetic;
+                Bseed = tBseed;
+                tree->Fill();
+            }
         }
         delete m;
         delete e;
     }
 
-    std::cout << std::endl;
+    std::cerr << std::endl;
     file->Write();
     delete f;
 

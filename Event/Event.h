@@ -51,6 +51,7 @@ class EventHandler{
     Eigen::VectorXd c_ij;
     Eigen::VectorXd cs_ij;
 
+    Eigen::Matrix3d beta_prev;
 };
 
 #endif
