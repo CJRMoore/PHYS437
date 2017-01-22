@@ -107,7 +107,7 @@ void Molecule::AddAtom(std::string _atom, unsigned int seed){
 double Molecule::GetKE(){
     double KE=0;
     for (int i=0; i<nAtoms; i++){
-        double v = Atoms[i]->GetVelocity().norm();
+        double v = (Atoms[i]->GetVelocity() - InitialVelocity).norm();
         KE += .5 * Atoms[i]->GetMass() * pow(v,2);
     }
 
@@ -244,6 +244,29 @@ Eigen::Matrix3d Molecule::GenerateRotation(unsigned seed){
     R = Eigen::Matrix3d(q)*R;
 
     return R;
+}
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+// Molecule::GenerateVelocity
+// Generate random initial velocity
+//////////////////////////////////////////////////////////////////////////////////////////////////
+void Molecule::GenerateVelocity(unsigned int seed){
+    if (seed==0) seed = std::chrono::system_clock::now().time_since_epoch().count();
+    std::default_random_engine generator(seed);
+
+    double totalmass=0;
+    for (int i=0; i<nAtoms; i++) totalmass += Atoms[i]->GetMass();
+    double sigma = 1.38e-23*300/totalmass;
+    std::normal_distribution<double> norm_dist(0.0,pow(sigma,.5));
+
+    Eigen::Matrix3d R = GenerateRotation(seed);
+    Eigen::Vector3d v(0.,0.,fabs(norm_dist(generator)));
+    v *= 4.*pi*v.squaredNorm()/sigma;
+    v = R*v;
+    for (int i=0; i<nAtoms; i++)  Atoms[i]->SetVelocity(v);
+    InitialVelocity = v;
+    //(1.67e-27/(2.*np.pi*1.38e-23*293))**(1./2)*np.exp(-1.67e-27*x**2/(2.*1.38e-23*293))
 }
 
 
@@ -392,24 +415,8 @@ void Molecule::Rotate(unsigned int seed){
 
         Eigen::Vector3d mPos = cAtom->GetPosition();
         mPos = R*mPos;
-/*
-        Eigen::Quaterniond p;
-        p.w() = 0;
-        p.vec() = cAtom->GetPosition();
-        Eigen::Quaterniond p_rotated = q * p * q.inverse();
-        Eigen::Vector3d mPos = p_rotated.vec();
-*/
         cAtom->SetPosition(mPos);
     }
-    /*
-    a = Atoms[2]->GetPosition();
-    std::cout << "\n" << a.norm() << " " << a.transpose() << "\t\t\t";
-    a /= pow(a.dot(a),0.5);
-    g = Atoms[0]->GetPosition();
-    std::cout << g.norm() << " " << g.transpose();
-    g /= pow(g.dot(g),0.5);
-    std::cout << "\n" << acos(a.dot(g))*180/pi << std::endl; 
-    */
 }
 
 

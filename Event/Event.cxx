@@ -100,7 +100,7 @@ double EventHandler::Run(int RunType){
     if (!RunType) {
         Energy_PreExplosion = 0;
         for (int j=0; j<mMolecule->GetNatoms(); j++){
-            mAtom = mMolecule->GetAtom(j); 
+            mAtom = mMolecule->GetAtom(j);
             for (int k=j; k<mMolecule->GetNatoms(); k++){
                 Atom* oAtom = mMolecule->GetAtom(k);
                 if (oAtom->GetIndex() <= mAtom->GetIndex()) continue;
@@ -195,7 +195,7 @@ bool EventHandler::FinalCondition(int RunType, double Condition){
         double E = 0;
         for (int i=0; i<mMolecule->GetNatoms(); i++){
             mAtom = mMolecule->GetAtom(i);
-            Eigen::Vector3d mvel = mAtom->GetVelocity();
+            Eigen::Vector3d mvel = mAtom->GetVelocity() - mMolecule->GetInitialVelocity();
             double vsq = mvel.dot(mvel);//pow(mvel[0],2) + pow(mvel[1],2) + pow(mvel[2],2);
 //            v = pow(v,.5);
             E += 0.5 * mAtom->GetMass() * vsq;
@@ -326,22 +326,13 @@ bool EventHandler::RungeKutta(int RunType){
             tempPosErrVec(iA) = delta_y[iA].maxCoeff();
             tempVelErrVec(iA) = delta_v[iA].maxCoeff();
         }*/
-        double atomPosErr = delta_y.maxCoeff();//tempPosErrVec.maxCoeff();
-        //*std::max_element(delta_y[iA].begin(),delta_y[iA].end());
-        double atomVelErr = delta_v.maxCoeff();//tempVelErrVec.maxCoeff();
-        //*std::max_element(delta_v[iA].begin(),delta_v[iA].end());
-        if (atomPosErr/errors_pos[RunType][0] > maxPosErr)///errors_pos[RunType][0]) 
-            maxPosErr = atomPosErr/errors_pos[RunType][0];
-        if (atomVelErr/errors_vel[RunType][0] > maxVelErr)///errors_vel[RunType][0]) 
-            maxVelErr = atomVelErr/errors_vel[RunType][0];
-
-        /*mAtom = mMolecule->GetAtom(iA);
-        for (int i=0; i<3; i++){
-            if (maxnewvel < (fabs(mAtom->GetVelocity()[i]-newvel[iA][i]) / fabs(newvel[iA][i])))
-                maxnewvel = (fabs(mAtom->GetVelocity()[i]-newvel[iA][i]) / fabs(newvel[iA][i]));
-        }*/
-//    }
-    if ((maxPosErr >= 1) || (maxVelErr >= 1)) mask |= 1 << 1;
+    double atomPosErr = delta_y.maxCoeff();//tempPosErrVec.maxCoeff();
+    double atomVelErr = delta_v.maxCoeff();//tempVelErrVec.maxCoeff();
+    if (atomPosErr/errors_pos[RunType][0] > maxPosErr)///errors_pos[RunType][0]) 
+        maxPosErr = atomPosErr/errors_pos[RunType][0];
+    if (atomVelErr/errors_vel[RunType][0] > maxVelErr)///errors_vel[RunType][0]) 
+        maxVelErr = atomVelErr/errors_vel[RunType][0];
+    if ((maxPosErr > .9) || (maxVelErr > .9)) mask |= 1 << 1;
     if ((mask&2)==2 && RunType==1) nIter--;
     bool finality = FinalCondition(RunType, mask);
 
@@ -372,8 +363,10 @@ bool EventHandler::RungeKutta(int RunType){
     }
 
     double Factor_Power = 0.2;
+    double prefactor = 1;
+    if ((mask&2)==2) prefactor = 0.9;
     if ((maxPosErr>0 || maxVelErr>0)) { 
-        timedelta *= pow(1./std::max(maxPosErr,maxVelErr),Factor_Power);
+        timedelta *= prefactor*pow(1./std::max(maxPosErr,maxVelErr),Factor_Power);
     }
     else timedelta *= 2*pow(2,.5);
 

@@ -33,8 +33,10 @@ class Molecule{
     void Ionize(int I1=1, int I2=1, int I3=1);
     Eigen::Matrix3d GenerateRotation(unsigned seed=0);
     void Rotate(unsigned int seed=0);
+    void GenerateVelocity(unsigned int seed=0);
     bool EventFinished();
     double GetKE();
+    Eigen::Vector3d GetInitialVelocity(){ return InitialVelocity; };
 
     double GetAngle(){ return bondangle; };
     std::vector<double> GetBondLengths(){
@@ -56,6 +58,7 @@ class Molecule{
     std::vector<Atom*> Atoms;
     unsigned short nAtoms;
     double bondangle;
+    Eigen::Vector3d InitialVelocity;
 
 };
 #endif

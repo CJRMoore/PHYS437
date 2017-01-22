@@ -158,7 +158,7 @@ int main(int argc, char** argv){
 
     int prognow = 0;
     
-    #pragma omp parallel for ordered
+    #pragma omp parallel for 
     for (int i=0; i<nIterations; i++){
         // Make thread safe
             std::vector<double> tmass(3,0);
@@ -182,20 +182,18 @@ int main(int argc, char** argv){
         }
         
         Molecule *m;
-//        #pragma omp ordered
+        #pragma omp critical
         {
-            #pragma omp critical
-            {
-                if (seeds.size()>0) {
-                    tBseed = seeds[i];
-                    m = new Molecule("",seeds[i]);
-                    m->Rotate(seeds[i]);
-                }
-                else {
-                    m = new Molecule();
-       // }
-                    m->Rotate();
-                }
+            if (seeds.size()>0) {
+                tBseed = seeds[i];
+                m = new Molecule("",seeds[i]);
+                m->Rotate(seeds[i]);
+                m->GenerateVelocity(seeds[i]);
+            }
+            else {
+                m = new Molecule();
+                m->Rotate();
+                m->GenerateVelocity();
             }
         }
         m->Ionize(I1,I2,I3);
