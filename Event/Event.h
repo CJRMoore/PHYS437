@@ -19,10 +19,10 @@ class EventHandler{
     void SetMolecule(Molecule* _molecule){ mMolecule = _molecule; };
 
     Eigen::Vector3d EfieldFromCharge(Eigen::Vector3d atompos, double dt=0);
-    double Run(int RunType);
+    void Run(int RunType);
     bool RungeKutta(int RunType);
     void Reset();
-    void UpdateDistance(std::vector<Eigen::MatrixXd> &k, double dt, int Runtype, int index);
+    void UpdateDistance(std::vector<Eigen::MatrixXd> &k, const double &dt, const int &Runtype, const int &index);
 
     bool FinalCondition(int RunType, double Contidion=0.);
 
@@ -39,6 +39,7 @@ class EventHandler{
     int nIter;
     double time;
     double timedelta;
+    double mParticleEndpoint;
     std::vector<std::vector<double> > errors_vel;
     std::vector<std::vector<double> > errors_pos;
 

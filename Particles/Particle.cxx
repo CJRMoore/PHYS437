@@ -36,12 +36,18 @@ double Zinitial = 0.5 * (0.5 * (89.61+92.91) + 0.5 * (82.51+85.81)) * 1e-3;
 void Molecule::Init(std::string aMolecule, unsigned int seed){
     MoleculeName = aMolecule;
     nAtoms = 0;
+    endpoint = 6.2e-3;
     Atoms.resize(0,0);
 
     // Add ability later for different molecules, for now just OCS
-    AddAtom("O",seed);
-    AddAtom("C",seed);
-    AddAtom("S",seed);
+    if (aMolecule=="OCS" || aMolecule==""){
+        AddAtom("O",seed);
+        AddAtom("C",seed);
+        AddAtom("S",seed);
+    }
+    else if (aMolecule=="D2") {
+        AddAtom("D2",seed);
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -92,6 +98,10 @@ void Molecule::AddAtom(std::string _atom, unsigned int seed){
         position[2]  = bondlength * cos(theta);
         position[0]  = bondlength * sin(theta);// * cos(phi);
 //        position[1]  = bondlength * sin(theta) * sin(phi);
+    }
+    else if (_atom=="D2"){
+        m = 4;
+        q = 2;
     }
     else{
         std::cerr << "Unitientified atom: " << _atom << ".\n";
@@ -257,16 +267,17 @@ void Molecule::GenerateVelocity(unsigned int seed){
 
     double totalmass=0;
     for (int i=0; i<nAtoms; i++) totalmass += Atoms[i]->GetMass();
-    double sigma = 1.38e-23*300/totalmass;
-    std::normal_distribution<double> norm_dist(0.0,pow(sigma,.5));
+    double sigma = pow(1.38e-23*300/totalmass,.5);
+    std::normal_distribution<double> norm_dist(0.0,sigma);
 
     Eigen::Matrix3d R = GenerateRotation(seed);
     Eigen::Vector3d v(0.,0.,fabs(norm_dist(generator)));
-    v *= 4.*pi*v.squaredNorm()/sigma;
+    v *= 1./sigma;
     v = R*v;
     for (int i=0; i<nAtoms; i++)  Atoms[i]->SetVelocity(v);
     InitialVelocity = v;
     //(1.67e-27/(2.*np.pi*1.38e-23*293))**(1./2)*np.exp(-1.67e-27*x**2/(2.*1.38e-23*293))
+
 }
 
 
@@ -425,10 +436,17 @@ void Molecule::Rotate(unsigned int seed){
 // Currently removes all electrons from each atom. 
 // TODO: find out from Benji how the electrons will be ejected and what is expected to happen.
 //////////////////////////////////////////////////////////////////////////////////////////////////
-void Molecule::Ionize(int I1, int I2, int I3){
-    Atoms[0]->SetNelectrons(Atoms[0]->GetNelectrons()-I1);
+void Molecule::Ionize(std::vector<int> ionizations){
+    if (ionizations.size()==0) ionizations.resize(nAtoms,1);
+    else if (ionizations.size()!=nAtoms){
+        std::cerr << "Incorrect number of ionizations passed to ionizer\n";
+        exit(0);
+    }
+    for (int i=0; i<nAtoms; i++) Atoms[i]->SetNelectrons(Atoms[i]->GetNelectrons()-ionizations[i]);
+    /*Atoms[0]->SetNelectrons(Atoms[0]->GetNelectrons()-I1);
     Atoms[1]->SetNelectrons(Atoms[1]->GetNelectrons()-I2);
     Atoms[2]->SetNelectrons(Atoms[2]->GetNelectrons()-I3);
+    */
     return;
 }
 
@@ -439,10 +457,11 @@ void Molecule::Ionize(int I1, int I2, int I3){
 bool Molecule::EventFinished(){
     bool fin = true;
     for (int iA=0; iA<nAtoms; iA++) {
-   //     printf("%6.4e\t",Atoms[iA]->GetPosition()(2));
-        if (Atoms[iA]->GetPosition()(2) > 0.) fin=false;
+        // Not entirely sure what the distance should be, but it is around this distance
+        // should be the position of the MCP
+        // .62 mm
+        if (Atoms[iA]->GetPosition()(2) > endpoint) fin=false;
     }
- //   std::cout << std::endl;
     return fin;
 }
 

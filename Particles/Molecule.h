@@ -30,12 +30,13 @@ class Molecule{
     }
 
     void AddAtom(std::string _atom, unsigned int seed=0);
-    void Ionize(int I1=1, int I2=1, int I3=1);
+    void Ionize(std::vector<int> ionizations = std::vector<int>(0,0));
     Eigen::Matrix3d GenerateRotation(unsigned seed=0);
     void Rotate(unsigned int seed=0);
     void GenerateVelocity(unsigned int seed=0);
     bool EventFinished();
     double GetKE();
+    double GetEndpoint(){ return endpoint; };
     Eigen::Vector3d GetInitialVelocity(){ return InitialVelocity; };
 
     double GetAngle(){ return bondangle; };
@@ -48,12 +49,12 @@ class Molecule{
 
     void Randomize();
 
-//    std::string GetName(){ return MoleculeName; };
     
   protected:   
     void Init(std::string aMolecule, unsigned int seed=0);
 
   private:
+    double endpoint;
     std::string MoleculeName;
     std::vector<Atom*> Atoms;
     unsigned short nAtoms;

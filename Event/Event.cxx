@@ -23,6 +23,7 @@ void EventHandler::Init(Field* aField, Molecule* aMolecule){
     mField = aField;
     mMolecule = aMolecule;
     mAtom = 0;
+    mParticleEndpoint = mMolecule->GetEndpoint();
 
     nIter = 0;
     time = 0;
@@ -94,7 +95,7 @@ void EventHandler::Reset(){
 // Loop the Runge-Kutta function until the molecule finished flag is returned (all atoms
 // have reached the bottom of the detector)
 //////////////////////////////////////////////////////////////////////////////////////////////////
-double EventHandler::Run(int RunType){
+void EventHandler::Run(int RunType){
     std::vector<double> momentum(3,0);
 
     if (!RunType) {
@@ -134,7 +135,7 @@ double EventHandler::Run(int RunType){
         }
         std::cout << "Total energy of the system after explosion:\t\t" << E << std::endl;
     }*/
-    return time;
+    //return time;
 }
 
 
@@ -186,7 +187,7 @@ Eigen::Vector3d EventHandler::EfieldFromCharge(Eigen::Vector3d atompos, double d
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 // EventHandler::FinalCondition
-// Takes a string, "EQ" for coulomb explosion or "ES" for the static field, and tells the Runge-
+// Takes an integer (0 for Coulomb explosion, 1 for the extraction), and tells the Runge-
 // Kutta algorithm whether it is complete.
 //////////////////////////////////////////////////////////////////////////////////////////////////
 bool EventHandler::FinalCondition(int RunType, double Condition){
@@ -219,7 +220,7 @@ bool EventHandler::FinalCondition(int RunType, double Condition){
 //        if (((int)Condition&2)==0) printf("%12.10f %12.10f %12.10e\n",E/Energy_PreExplosion,E_charge/Energy_PreExplosion,time);
         return (fabs(E - Energy_PreExplosion)/Energy_PreExplosion) < 0.005; 
     }
-    else if (RunType==1){
+    else if (RunType){
         //std::cout << mMolecule->EventFinished() << std::endl;
         return (mMolecule->EventFinished());
     }
@@ -257,7 +258,7 @@ bool EventHandler::RungeKutta(int RunType){
                 Eigen::Vector3d br(-1, -1, -1);
                 mAtom->SetPosition(br);
             }
-            if (mAtom->GetPosition()[2] <= 0) {
+            if (mAtom->GetPosition()[2] <= mParticleEndpoint) {
                 isFinished[iA] = 1;
                 continue;
             }
@@ -328,27 +329,27 @@ bool EventHandler::RungeKutta(int RunType){
         }*/
     double atomPosErr = delta_y.maxCoeff();//tempPosErrVec.maxCoeff();
     double atomVelErr = delta_v.maxCoeff();//tempVelErrVec.maxCoeff();
-    if (atomPosErr/errors_pos[RunType][0] > maxPosErr)///errors_pos[RunType][0]) 
-        maxPosErr = atomPosErr/errors_pos[RunType][0];
-    if (atomVelErr/errors_vel[RunType][0] > maxVelErr)///errors_vel[RunType][0]) 
-        maxVelErr = atomVelErr/errors_vel[RunType][0];
+    if (atomPosErr/errors_pos[RunType?1:0][0] > maxPosErr)///errors_pos[RunType][0]) 
+        maxPosErr = atomPosErr/errors_pos[RunType?1:0][0];
+    if (atomVelErr/errors_vel[RunType?1:0][0] > maxVelErr)///errors_vel[RunType][0]) 
+        maxVelErr = atomVelErr/errors_vel[RunType?1:0][0];
     if ((maxPosErr > .9) || (maxVelErr > .9)) mask |= 1 << 1;
-    if ((mask&2)==2 && RunType==1) nIter--;
+    if ((mask&2)==2 && RunType) nIter--;
     bool finality = FinalCondition(RunType, mask);
 
-    if ((mask&2)==0){
+//    if ((mask&2)==0){
         for (int iA=0; iA < mMolecule->GetNatoms(); iA++){
             //mAtom = mMolecule->GetAtom(iA);
 //        printf("%2i %6.4e %2i %d %6.4e %6.4e %6.4e\n",iA,mAtom->GetTimeOfFlight(),mask,(int)isFinished[iA],mAtom->GetMass()*newvel[iA][0],mAtom->GetMass()*newvel[iA][1],mAtom->GetMass()*newvel[iA][2]);
             mAtom = mMolecule->GetAtom(iA);
-            if (RunType==1 && isFinished[iA]) {
+            if (RunType && isFinished[iA]) {
                 mAtom->SetVelocity(Eigen::Vector3d::Zero());
                 beta_prev.col(iA) = Eigen::Vector3d::Zero();
                 continue;
             }
 
             beta_prev.col(iA) = mAtom->GetVelocity();
-        //if (RunType==0) printf("%2i %6.4e %6.4e %6.4e %6.4e\n",iA,mAtom->GetTimeOfFlight(),newpos[iA][0],newpos[iA][1],newpos[iA][2]);
+            //printf("%2i %6.4e %6.4e %6.4e %6.4e\n",iA,timedelta,newpos[iA][0],newpos[iA][1],newpos[iA][2]);
             mAtom->SetPosition(newpos[iA]);
             mAtom->SetVelocity(newvel[iA]);
             mAtom->SetTimeOfFlight(mAtom->GetTimeOfFlight() + timedelta);
@@ -360,7 +361,7 @@ bool EventHandler::RungeKutta(int RunType){
 //    std::cout << newvel[0][0] << " " << newvel[0][1] << " " << newvel[0][2] << std::endl;
     //std::cout << maxPosErr << " " << maxVelErr << " " << timedelta << std::endl;
         time += timedelta;
-    }
+  //  }
 
     double Factor_Power = 0.2;
     double prefactor = 1;
@@ -388,7 +389,8 @@ bool EventHandler::RungeKutta(int RunType){
 }
 
 
-void EventHandler::UpdateDistance(std::vector<Eigen::MatrixXd> &k, double dt, int RunType, int index){
+void EventHandler::UpdateDistance(std::vector<Eigen::MatrixXd> &k, const double &dt, const int &RunType, const int &index){
+//(std::vector<Eigen::MatrixXd> &k, double dt, int RunType, int index){
     //Eigen::MatrixXd accel(mMolecule->GetNatoms(),3);
     std::vector<Eigen::Vector3d > position (mMolecule->GetNatoms());
     std::vector<Eigen::Vector3d > velocity (mMolecule->GetNatoms());
@@ -412,7 +414,7 @@ void EventHandler::UpdateDistance(std::vector<Eigen::MatrixXd> &k, double dt, in
 //            double Z0 = 0.5 * (0.5 * (89.61+92.91) + 0.5 * (82.51+85.81)) * 1e-3;
             E_Field = EfieldFromCharge(position[iA], dt);// + mField->GetFieldAtPosition(ptemp);
         }
-        else if (RunType==1) E_Field = mField->GetFieldAtPosition(position[iA]);
+        else if (RunType) E_Field = mField->GetFieldAtPosition(position[iA]);// * (1001.-RunType)/1000;
         double mass = mAtom->GetMass();
         double qm_ratio = mAtom->GetTotalCharge()/mass;
         k[iA].row(index) = qm_ratio * E_Field.transpose();    

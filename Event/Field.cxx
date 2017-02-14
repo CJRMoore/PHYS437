@@ -39,8 +39,8 @@ void Field::Init(std::string FieldFile){
     CoordinatesY.resize(nR, 0);
     CoordinatesZ.resize(nZ, 0);
 
-    double X0 = -76.2e-3;
-    double Z0 = -152.4e-3;
+//    double X0 = -76.2e-3;
+//    double Z0 = -152.4e-3;
 
     int ir = 0;
     int iz = 0;

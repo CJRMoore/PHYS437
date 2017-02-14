@@ -34,8 +34,10 @@ int main(int argc, char** argv){
     std::string openMethod = "RECREATE";
     std::string fieldFile = "geo_default.txt";
     int corecount = omp_get_num_threads();
-    int I1=1, I2=1, I3=1;
+    std::vector<int> ionizations;
     std::string seedFile = "";
+    std::string atomSpec = "";
+    bool varyField = false;
 
     for (int i=1; i<argc; i++){
         if (strcmp(argv[i],"-n")==0)        nIterations = atoi(argv[i+1]);
@@ -44,11 +46,24 @@ int main(int argc, char** argv){
         else if (strcmp(argv[i],"-m")==0)    openMethod = argv[i+1];
         else if (strcmp(argv[i],"-f")==0)     fieldFile = argv[i+1];
         else if (strcmp(argv[i],"-s")==0)      seedFile = argv[i+1];
+        else if (strcmp(argv[i],"-a")==0)      atomSpec = argv[i+1];
+        else if (strcmp(argv[i],"-v")==0)     varyField = true;
         else if (strcmp(argv[i],"-I")==0){
-            I1 = atoi(argv[i+1]);
+            int inputFromCL=0;
+            int CLnum=1;
+            std::istringstream ss;
+            while (true){
+                ss.str(argv[i+CLnum]);
+                ss >> inputFromCL;
+                if (ss.fail()) break;
+                ionizations.push_back(inputFromCL);
+                CLnum++;
+            }
+            /*I1 = atoi(argv[i+1]);
             I2 = atoi(argv[i+2]);
             I3 = atoi(argv[i+3]);
-            i += 3;
+            i += 2;*/
+            i += CLnum-1;
         }
         else continue;
         i++;
@@ -89,16 +104,6 @@ int main(int argc, char** argv){
         }
         nIterations = seeds.size();
     }
-/*    if (argc==3) {
-        nIterations = atoi(argv[1]);
-        outFile = argv[2];
-    }
-    else if (argc==4) {
-        nIterations = atoi(argv[1]);
-        outFile = argv[2];
-        openMethod = argv[3];
-    }
-    else if (argc==2) nIterations = atoi(argv[1]);*/
 
     std::vector<double> mass(3,0);
     std::vector<double> charge(3,0);
@@ -113,6 +118,7 @@ int main(int argc, char** argv){
     std::vector<double> pz(3,0);
     double kinetic=0;
     unsigned int Bseed = 0;
+    double samplefield = 0;
 
     gROOT->ProcessLine("#include <vector>");
 
@@ -133,6 +139,7 @@ int main(int argc, char** argv){
         tree->Branch("pz",&pz);
         tree->Branch("ke",&kinetic);
         tree->Branch("seed",&Bseed);
+        if (varyField) tree->Branch("field",&samplefield);
     }
     else{
         std::vector<double> *mp = &mass;
@@ -174,6 +181,7 @@ int main(int argc, char** argv){
             std::vector<double> tpz(3,0);
             double tkinetic=0;
             unsigned int tBseed = 0;
+            double tsamplefield = 0;
 
         #pragma omp critical
         {
@@ -186,17 +194,17 @@ int main(int argc, char** argv){
         {
             if (seeds.size()>0) {
                 tBseed = seeds[i];
-                m = new Molecule("",seeds[i]);
+                m = new Molecule(atomSpec,seeds[i]);
                 m->Rotate(seeds[i]);
                 m->GenerateVelocity(seeds[i]);
             }
             else {
-                m = new Molecule();
+                m = new Molecule(atomSpec);
                 m->Rotate();
                 m->GenerateVelocity();
             }
         }
-        m->Ionize(I1,I2,I3);
+        m->Ionize(ionizations);
 
         for (int j=0; j<m->GetNatoms(); j++){
             Atom* atom = m->GetAtom(j);
@@ -207,11 +215,16 @@ int main(int argc, char** argv){
         }
         
         EventHandler *e = new EventHandler(f, m);
-        double ExplosionTime = e->Run(0);
+        if (atomSpec!="D2") e->Run(0);
 
         tkinetic = m->GetKE();
 
         double Zinitial = 0.5 * (0.5 * (89.61+92.91) + 0.5 * (82.51+85.81)) * 1e-3;
+        // for specific D2 test requested by Benji
+        /*if (atomSpec=="D2") {
+            Zinitial -= i * (Zinitial/(2*nIterations));
+            tz0[0] = Zinitial;
+        }*/
         for (int j=0; j<m->GetNatoms(); j++){
             Atom* atom = m->GetAtom(j);
             tmass[j] = atom->GetMass();
@@ -226,7 +239,8 @@ int main(int argc, char** argv){
             atom->SetPosition(pos);
         }
 
-        double ToF = e->Run(1);
+        if (varyField) e->Run(i+1);
+        else e->Run(1);
 
         bool failed=false;
         for (int j=0; j<m->GetNatoms(); j++){
@@ -255,6 +269,13 @@ int main(int argc, char** argv){
                 }
                 kinetic = tkinetic;
                 Bseed = tBseed;
+                if (varyField){
+                    // Should only be used with static field
+                    Eigen::Vector3d tempV(0,0,1e-3);
+                    tempV = f->GetFieldAtPosition(tempV);
+//                    std::cout << tempV[2] << std::endl;
+                    samplefield = tempV[2] * (1001.-i)/1000;
+                }
                 tree->Fill();
             }
         }
